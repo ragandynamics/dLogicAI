@@ -1,0 +1,26 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="Sign in — dLogicAI">
+  <main style="max-width:460px;margin:80px auto">
+    <div class="card">
+      <h1>dLogicAI</h1>
+      <p class="muted">Sign in to your workspace.</p>
+      <form id="form">
+        <label>Email<input id="email" type="email" required /></label>
+        <label>Password<input id="password" type="password" required /></label>
+        <button>Sign in</button>
+      </form>
+      <p class="muted">New here? <a href="/register" style="text-decoration:underline">Create an account</a></p>
+      <div id="error" style="color:#b91c1c"></div>
+    </div>
+  </main>
+  <script>
+    const API=import.meta.env.PUBLIC_API_URL||"http://localhost:8787";
+    document.querySelector("#form").addEventListener("submit",async(e)=>{
+      e.preventDefault();
+      const r=await fetch(API+"/v1/auth/login",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email.value,password:password.value})});
+      if(r.ok) location.href="/"; else error.textContent=(await r.json()).error?.message||"Login failed";
+    });
+  </script>
+</Layout>

@@ -1,0 +1,14 @@
+{
+  "name": "dLogicAI",
+  "private": true,
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "dev:api": "pnpm --dir apps/api dev",
+    "dev:web": "pnpm --dir apps/web dev",
+    "build": "pnpm --dir apps/web build",
+    "deploy:api": "pnpm --dir apps/api deploy",
+    "deploy:web": "pnpm --dir apps/web deploy",
+    "db:migrate:local": "pnpm --dir apps/api db:migrate:local",
+    "db:migrate:remote": "pnpm --dir apps/api db:migrate:remote"
+  }
+}

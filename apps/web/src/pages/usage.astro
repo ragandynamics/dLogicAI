@@ -1,0 +1,18 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="Usage — dLogicAI">
+  <div class="shell">
+    <aside class="side"><div class="brand">dLogicAI</div><nav class="nav"><a href="/">Overview</a><a href="/projects">Projects</a><a href="/usage">Usage</a></nav></aside>
+    <main>
+      <h1>Usage</h1>
+      <div class="card"><div id="summary">Loading…</div></div>
+      <div style="height:20px"></div>
+      <div class="card"><h2>By provider</h2><table><thead><tr><th>Provider</th><th>Mode</th><th>Requests</th><th>Provider cost</th><th>Customer charges</th></tr></thead><tbody id="rows"></tbody></table></div>
+    </main>
+  </div>
+  <script>
+    const API=import.meta.env.PUBLIC_API_URL||"http://localhost:8787";
+    async function load(){const r=await fetch(API+"/v1/usage",{credentials:"include"});if(!r.ok){location.href="/login";return}const d=await r.json(),s=d.summary||{};summary.innerHTML=`<p>Requests: <b>${Number(s.requests||0).toLocaleString()}</b></p><p>Input tokens: <b>${Number(s.input_tokens||0).toLocaleString()}</b></p><p>Output tokens: <b>${Number(s.output_tokens||0).toLocaleString()}</b></p><p>Provider cost: <b>$${(Number(s.provider_cost_micros||0)/1e6).toFixed(2)}</b></p><p>Customer charges: <b>$${(Number(s.customer_charge_micros||0)/1e6).toFixed(2)}</b></p>`;rows.innerHTML=d.by_provider.map(x=>`<tr><td>${x.provider}</td><td>${x.billing_mode}</td><td>${x.requests}</td><td>$${(x.provider_cost_micros/1e6).toFixed(4)}</td><td>$${(x.customer_charge_micros/1e6).toFixed(4)}</td></tr>`).join("")}load();
+  </script>
+</Layout>

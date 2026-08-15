@@ -1,0 +1,66 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="dLogicAI">
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">dLogicAI</div>
+      <nav class="nav">
+        <a href="/">Overview</a>
+        <a href="/projects">Projects</a>
+        <a href="/playground">Playground</a>
+        <a href="/usage">Usage</a>
+        <a href="/settings">Settings</a>
+      </nav>
+    </aside>
+    <main>
+      <div class="top">
+        <div>
+          <h1>Conversational AI infrastructure</h1>
+          <div class="muted">One API for web and mobile applications.</div>
+        </div>
+        <button onclick="logout()">Sign out</button>
+      </div>
+
+      <div id="error" class="card" style="display:none"></div>
+      <div class="grid" id="cards">
+        <div class="card"><div class="muted">Plan</div><div class="big">Loading…</div></div>
+        <div class="card"><div class="muted">Requests</div><div class="big">Loading…</div></div>
+        <div class="card"><div class="muted">AI provider cost</div><div class="big">Loading…</div></div>
+        <div class="card"><div class="muted">Customer charges</div><div class="big">Loading…</div></div>
+      </div>
+
+      <div style="height:20px"></div>
+      <div class="card">
+        <h2>Quick start</h2>
+        <p>Create a project, generate an API key, then call <code>POST /v1/responses</code>.</p>
+        <pre id="snippet">Loading…</pre>
+      </div>
+    </main>
+  </div>
+  <script>
+    const API = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+    async function get(path, options={}) {
+      const r = await fetch(API+path, {...options, credentials:"include", headers:{"Content-Type":"application/json",...(options.headers||{})}});
+      if(!r.ok) throw new Error((await r.json().catch(()=>({error:{message:r.statusText}}))).error?.message || r.statusText);
+      return r.json();
+    }
+    async function load(){
+      try{
+        const me=await get("/v1/me"); const u=await get("/v1/usage");
+        const s=u.summary||{}; const sub=me.subscription||{};
+        document.querySelector("#cards").innerHTML=`
+          <div class="card"><div class="muted">Plan</div><div class="big">${sub.plan_name||"Free"}</div></div>
+          <div class="card"><div class="muted">Requests</div><div class="big">${Number(s.requests||0).toLocaleString()}</div></div>
+          <div class="card"><div class="muted">AI provider cost</div><div class="big">$${(Number(s.provider_cost_micros||0)/1e6).toFixed(2)}</div></div>
+          <div class="card"><div class="muted">Customer charges</div><div class="big">$${(Number(s.customer_charge_micros||0)/1e6).toFixed(2)}</div></div>`;
+        document.querySelector("#snippet").textContent=`curl ${API}/v1/responses \\
+  -H "Authorization: Bearer sk_live_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"auto","input":"Hello","response_language":"auto"}'`;
+      }catch(e){ location.href="/login"; }
+    }
+    async function logout(){ await fetch(API+"/v1/auth/logout",{method:"POST",credentials:"include"}); location.href="/login"; }
+    load();
+  </script>
+</Layout>

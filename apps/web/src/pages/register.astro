@@ -1,0 +1,27 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="Create account — dLogicAI">
+  <main style="max-width:460px;margin:80px auto">
+    <div class="card">
+      <h1>Create your dLogicAI workspace</h1>
+      <p class="muted">Free tier included.</p>
+      <form id="form">
+        <label>Name<input id="name" required /></label>
+        <label>Email<input id="email" type="email" required /></label>
+        <label>Password<input id="password" type="password" minlength="10" required /></label>
+        <button>Create account</button>
+      </form>
+      <p class="muted">Already registered? <a href="/login" style="text-decoration:underline">Sign in</a></p>
+      <div id="error" style="color:#b91c1c"></div>
+    </div>
+  </main>
+  <script>
+    const API=import.meta.env.PUBLIC_API_URL||"http://localhost:8787";
+    document.querySelector("#form").addEventListener("submit",async(e)=>{
+      e.preventDefault();
+      const r=await fetch(API+"/v1/auth/register",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name.value,email:email.value,password:password.value})});
+      if(r.ok) location.href="/"; else error.textContent=(await r.json()).error?.message||"Registration failed";
+    });
+  </script>
+</Layout>
