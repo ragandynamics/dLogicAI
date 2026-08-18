@@ -1,66 +1,162 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import AppLayout from "../layouts/AppLayout.astro";
 ---
-<Layout title="dLogicAI">
-  <div class="shell">
-    <aside class="side">
-      <div class="brand">dLogicAI</div>
-      <nav class="nav">
-        <a href="/">Overview</a>
-        <a href="/projects">Projects</a>
-        <a href="/playground">Playground</a>
-        <a href="/usage">Usage</a>
-        <a href="/settings">Settings</a>
-      </nav>
-    </aside>
-    <main>
-      <div class="top">
-        <div>
-          <h1>Conversational AI infrastructure</h1>
-          <div class="muted">One API for web and mobile applications.</div>
+
+<AppLayout title="Conversations That Drive Business">
+  <div class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
+    <!-- Header -->
+    <header class="border-b border-slate-200/80 bg-white/80 backdrop-blur">
+      <div
+        class="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8"
+      >
+        <a
+          href="/"
+          class="text-xl font-extrabold tracking-tight text-slate-950"
+        >
+          dLogicAI
+        </a>
+
+        <div class="flex items-center gap-2">
+          <a
+            href="/login"
+            class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            Sign in
+          </a>
+
+          <a
+            href="/register"
+            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+          >
+            Create account
+          </a>
         </div>
-        <button onclick="logout()">Sign out</button>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section
+      class="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-16 pt-20 text-center sm:px-6 lg:pb-24 lg:pt-28"
+    >
+      <span
+        class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700"
+      >
+        AI-powered customer conversations
+      </span>
+
+      <h1
+        class="mt-6 max-w-4xl text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl lg:text-7xl"
+      >
+        Conversations That Drive Business.
+      </h1>
+
+      <p
+        class="mt-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl"
+      >
+        dLogicAI helps businesses turn customer conversations into guided
+        transactions, intelligent interactions and measurable business
+        outcomes.
+      </p>
+
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        <a
+          href="/register"
+          class="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+        >
+          Get started
+        </a>
+
+        <a
+          href="/pricing"
+          class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          View pricing
+        </a>
+
+        <a
+          href="/login"
+          class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Sign in
+        </a>
+      </div>
+    </section>
+
+    <!-- Capabilities -->
+    <section
+      class="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 px-4 pb-20 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8"
+    >
+      <!-- Guided Transactions -->
+      <div
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div class="text-sm font-semibold text-blue-700">
+          01
+        </div>
+
+        <h2 class="mt-3 text-lg font-bold text-slate-950">
+          Guided transactions
+        </h2>
+
+        <p class="mt-2 text-sm leading-6 text-slate-600">
+          Turn customer questions into guided end-to-end business journeys
+          while still allowing free-form messages.
+        </p>
       </div>
 
-      <div id="error" class="card" style="display:none"></div>
-      <div class="grid" id="cards">
-        <div class="card"><div class="muted">Plan</div><div class="big">Loading…</div></div>
-        <div class="card"><div class="muted">Requests</div><div class="big">Loading…</div></div>
-        <div class="card"><div class="muted">AI provider cost</div><div class="big">Loading…</div></div>
-        <div class="card"><div class="muted">Customer charges</div><div class="big">Loading…</div></div>
+      <!-- Business Functions -->
+      <div
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div class="text-sm font-semibold text-blue-700">
+          02
+        </div>
+
+        <h2 class="mt-3 text-lg font-bold text-slate-950">
+          Business functions
+        </h2>
+
+        <p class="mt-2 text-sm leading-6 text-slate-600">
+          Support sales, customer service, payments, billing, booking and
+          appointment workflows.
+        </p>
       </div>
 
-      <div style="height:20px"></div>
-      <div class="card">
-        <h2>Quick start</h2>
-        <p>Create a project, generate an API key, then call <code>POST /v1/responses</code>.</p>
-        <pre id="snippet">Loading…</pre>
+      <!-- Conversation Intelligence -->
+      <div
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div class="text-sm font-semibold text-blue-700">
+          03
+        </div>
+
+        <h2 class="mt-3 text-lg font-bold text-slate-950">
+          Conversation intelligence
+        </h2>
+
+        <p class="mt-2 text-sm leading-6 text-slate-600">
+          Capture intent, emotion, urgency, outcomes and commercial opportunity
+          signals from conversations.
+        </p>
       </div>
-    </main>
+
+      <!-- AI Choice -->
+      <div
+        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div class="text-sm font-semibold text-blue-700">
+          04
+        </div>
+
+        <h2 class="mt-3 text-lg font-bold text-slate-950">
+          AI choice
+        </h2>
+
+        <p class="mt-2 text-sm leading-6 text-slate-600">
+          Let each tenant use dLogicAI managed AI or configure tenant-owned
+          provider credentials.
+        </p>
+      </div>
+    </section>
   </div>
-  <script>
-    const API = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
-    async function get(path, options={}) {
-      const r = await fetch(API+path, {...options, credentials:"include", headers:{"Content-Type":"application/json",...(options.headers||{})}});
-      if(!r.ok) throw new Error((await r.json().catch(()=>({error:{message:r.statusText}}))).error?.message || r.statusText);
-      return r.json();
-    }
-    async function load(){
-      try{
-        const me=await get("/v1/me"); const u=await get("/v1/usage");
-        const s=u.summary||{}; const sub=me.subscription||{};
-        document.querySelector("#cards").innerHTML=`
-          <div class="card"><div class="muted">Plan</div><div class="big">${sub.plan_name||"Free"}</div></div>
-          <div class="card"><div class="muted">Requests</div><div class="big">${Number(s.requests||0).toLocaleString()}</div></div>
-          <div class="card"><div class="muted">AI provider cost</div><div class="big">$${(Number(s.provider_cost_micros||0)/1e6).toFixed(2)}</div></div>
-          <div class="card"><div class="muted">Customer charges</div><div class="big">$${(Number(s.customer_charge_micros||0)/1e6).toFixed(2)}</div></div>`;
-        document.querySelector("#snippet").textContent=`curl ${API}/v1/responses \\
-  -H "Authorization: Bearer sk_live_..." \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"auto","input":"Hello","response_language":"auto"}'`;
-      }catch(e){ location.href="/login"; }
-    }
-    async function logout(){ await fetch(API+"/v1/auth/logout",{method:"POST",credentials:"include"}); location.href="/login"; }
-    load();
-  </script>
-</Layout>
+</AppLayout>

@@ -1,18 +1,21 @@
 {
-  "name": "@dLogicAI/web",
+  "name": "@dlogicai/web",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "deploy": "astro build && wrangler deploy"
+    "check": "astro check"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^13.1.8",
-    "astro": "^6.0.4"
+    "@astrojs/cloudflare": "latest",
+    "@dlogicai/shared": "workspace:*",
+    "astro": "latest",
+    "typescript": "latest"
   },
   "devDependencies": {
-    "wrangler": "^4.36.0",
-    "typescript": "^5.9.2"
+    "@tailwindcss/vite": "latest",
+    "tailwindcss": "latest"
   }
 }

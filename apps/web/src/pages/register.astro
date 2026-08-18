@@ -1,27 +1,126 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import AppLayout from "../layouts/AppLayout.astro";
 ---
-<Layout title="Create account — dLogicAI">
-  <main style="max-width:460px;margin:80px auto">
-    <div class="card">
-      <h1>Create your dLogicAI workspace</h1>
-      <p class="muted">Free tier included.</p>
-      <form id="form">
-        <label>Name<input id="name" required /></label>
-        <label>Email<input id="email" type="email" required /></label>
-        <label>Password<input id="password" type="password" minlength="10" required /></label>
-        <button>Create account</button>
-      </form>
-      <p class="muted">Already registered? <a href="/login" style="text-decoration:underline">Sign in</a></p>
-      <div id="error" style="color:#b91c1c"></div>
+
+<AppLayout title="Create account">
+  <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6">
+    <div class="w-full max-w-md">
+      <div class="mb-8 text-center">
+        <a href="/" class="text-2xl font-extrabold tracking-tight text-slate-950">
+          dLogicAI
+        </a>
+        <p class="mt-2 text-sm text-slate-600">
+          Create your workspace and start with the Free plan.
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <h1 class="text-2xl font-bold text-slate-950">Create your account</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Your Free subscription and initial AI credits are created automatically.
+        </p>
+
+        <form id="register" class="mt-6 space-y-4">
+          <div>
+            <label for="name" class="text-sm font-medium text-slate-700">Name</label>
+            <input
+              id="name"
+              name="name"
+              required
+              autocomplete="name"
+              class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              placeholder="Your name"
+            />
+          </div>
+
+          <div>
+            <label for="email" class="text-sm font-medium text-slate-700">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autocomplete="email"
+              class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              placeholder="you@company.com"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="text-sm font-medium text-slate-700">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minlength="10"
+              autocomplete="new-password"
+              class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              placeholder="At least 10 characters"
+            />
+          </div>
+
+          <div class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            Free accounts receive the AI credits configured on the dLogicAI Free plan.
+          </div>
+
+          <button
+            class="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            type="submit"
+          >
+            Create account
+          </button>
+
+          <p id="error" class="min-h-5 text-sm text-red-600" role="alert"></p>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-slate-500">
+          Already have an account?
+          <a href="/login" class="font-semibold text-blue-600 hover:text-blue-700">
+            Sign in
+          </a>
+        </p>
+      </div>
     </div>
-  </main>
-  <script>
-    const API=import.meta.env.PUBLIC_API_URL||"http://localhost:8787";
-    document.querySelector("#form").addEventListener("submit",async(e)=>{
-      e.preventDefault();
-      const r=await fetch(API+"/v1/auth/register",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name.value,email:email.value,password:password.value})});
-      if(r.ok) location.href="/"; else error.textContent=(await r.json()).error?.message||"Registration failed";
+  </div>
+
+  <script is:inline>
+    document.querySelector("#register")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const form = new FormData(event.currentTarget);
+      const error = document.querySelector("#error");
+      const button = event.currentTarget.querySelector("button");
+
+      if (button) button.disabled = true;
+      if (error) error.textContent = "";
+
+      try {
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: form.get("name"),
+            email: form.get("email"),
+            password: form.get("password"),
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.error?.message || "Registration failed.");
+        }
+
+        window.location.href = "/dashboard";
+      } catch (err) {
+        if (error) {
+          error.textContent =
+            err instanceof Error ? err.message : "Registration failed.";
+        }
+        if (button) button.disabled = false;
+      }
     });
   </script>
-</Layout>
+</AppLayout>

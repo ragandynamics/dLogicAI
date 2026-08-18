@@ -1,0 +1,9 @@
+export type User = { id: string; email: string; name: string };
+export type Tenant = { id: string; name: string; slug?: string; default_language?: string };
+export type Subscription = { status: string; plan_name: string; monthly_price_cents: number; included_requests: number };
+export type MeResponse = { user: User; tenant: Tenant; subscription: Subscription | null };
+export type Project = { id: string; name: string; environment: 'development' | 'staging' | 'production'; status: string; created_at: number; updated_at: number };
+export type ApiKey = { id: string; name: string; prefix: string; secret?: string; status?: string; created_at: number; last_used_at?: number | null };
+export type Provider = { id: string; provider: 'openai' | 'google'; name: string; status: string; created_at: number; last_used_at?: number | null };
+export type ChatService = { id: string; name: string; business_function: string; description?: string; status: string };
+export type GuidedAction = { id: string; label: string; intent: string; next_step?: string };

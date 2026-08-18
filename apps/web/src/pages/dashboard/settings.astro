@@ -1,0 +1,96 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Settings" appShell={true}>
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Settings</h1>
+    <p class="mt-1 text-sm text-slate-600">Manage workspace identity and billing contact information.</p>
+  </div>
+
+  <form id="settings" class="mt-8 max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label class="text-sm font-medium text-slate-700">Workspace name</label>
+        <input id="name" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-slate-700">Company name</label>
+        <input id="company_name" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-slate-700">Billing email</label>
+        <input id="billing_email" type="email" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-slate-700">Organization type</label>
+        <select id="organization_type" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+          <option value="individual">Individual</option>
+          <option value="corporate">Corporate</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-slate-700">Default language</label>
+        <input id="default_language" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="en" />
+      </div>
+    </div>
+
+    <div class="mt-6 flex items-center gap-4">
+      <button class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Save changes</button>
+      <p id="message" class="text-sm"></p>
+    </div>
+  </form>
+
+  <script is:inline>
+    const form = document.querySelector("#settings");
+    const message = document.querySelector("#message");
+
+    async function load() {
+      const response = await fetch("/api/organization", { credentials: "include" });
+      if (response.status === 401) {
+        location.href = "/login";
+        return;
+      }
+
+      const data = await response.json();
+      const o = data.organization || {};
+
+      document.querySelector("#name").value = o.name || "";
+      document.querySelector("#company_name").value = o.company_name || "";
+      document.querySelector("#billing_email").value = o.billing_email || "";
+      document.querySelector("#organization_type").value = o.organization_type || "individual";
+      document.querySelector("#default_language").value = o.default_language || "en";
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const response = await fetch("/api/organization", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: document.querySelector("#name").value,
+          company_name: document.querySelector("#company_name").value || null,
+          billing_email: document.querySelector("#billing_email").value || null,
+          organization_type: document.querySelector("#organization_type").value,
+          default_language: document.querySelector("#default_language").value || "en",
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      message.textContent = response.ok
+        ? "Settings saved."
+        : data?.error?.message || "Unable to save settings.";
+
+      message.className = `text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
+    });
+
+    load();
+  </script>
+</AppLayout>

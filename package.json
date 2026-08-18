@@ -10,5 +10,9 @@
     "deploy:web": "pnpm --dir apps/web deploy",
     "db:migrate:local": "pnpm --dir apps/api db:migrate:local",
     "db:migrate:remote": "pnpm --dir apps/api db:migrate:remote"
+  },
+  "dependencies": {
+    "hono": "^4.13.3",
+    "zod": "^4.4.3"
   }
 }

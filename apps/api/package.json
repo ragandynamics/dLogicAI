@@ -9,12 +9,12 @@
     "db:migrate:remote": "wrangler d1 migrations apply dLogicAI-db --remote"
   },
   "dependencies": {
-    "hono": "^4.9.8",
-    "zod": "^4.1.8"
+    "hono": "^4.13.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250718.0",
-    "wrangler": "^4.36.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "wrangler": "^4.36.0"
   }
 }

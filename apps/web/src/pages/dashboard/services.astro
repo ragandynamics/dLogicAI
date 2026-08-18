@@ -1,0 +1,308 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+
+const services = [
+  {
+    name: "Sales",
+    description: "Product discovery, recommendations, quotations, purchase guidance and conversion.",
+    transactions: ["Product discovery", "Recommendation", "Quotation", "Purchase", "Upsell"],
+  },
+  {
+    name: "Customer Service",
+    description: "Order tracking, returns, complaints, support questions and escalation.",
+    transactions: ["Track order", "Return item", "Report issue", "Request support", "Escalate to human"],
+  },
+  {
+    name: "Payments & Billing",
+    description: "Payment status, invoices, refunds, billing questions and payment assistance.",
+    transactions: ["Check payment", "View invoice", "Make payment", "Request refund", "Billing support"],
+  },
+  {
+    name: "Booking & Appointments",
+    description: "Availability, booking, rescheduling, cancellation and appointment management.",
+    transactions: ["Check availability", "Book appointment", "Reschedule", "Cancel booking", "Confirm appointment"],
+  },
+];
+---
+
+<AppLayout title="Chat Services" appShell={true}>
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+        Business experiences
+      </span>
+      <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Chat Services</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        Configure customer-facing AI services around business goals. Each service can be exposed through multiple customer channels while sharing the same guided transactions and intelligence.
+      </p>
+    </div>
+
+    <button id="create-service" type="button" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">
+      Create service
+    </button>
+  </div>
+
+  <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Service model</div>
+    <div class="mt-5 grid gap-4 md:grid-cols-3">
+      <div class="rounded-xl bg-blue-50 p-4">
+        <div class="text-xs font-semibold text-blue-700">Customer channels</div>
+        <div class="mt-2 text-sm font-bold text-slate-950">Web · WhatsApp · Facebook · Instagram · Telegram · TikTok</div>
+      </div>
+      <div class="rounded-xl bg-slate-50 p-4">
+        <div class="text-xs font-semibold text-slate-500">Chat Service</div>
+        <div class="mt-2 text-sm font-bold text-slate-950">Business goal + guided transaction</div>
+      </div>
+      <div class="rounded-xl bg-emerald-50 p-4">
+        <div class="text-xs font-semibold text-emerald-700">Outcome</div>
+        <div class="mt-2 text-sm font-bold text-slate-950">Completed transaction + intelligence</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+    {services.map((service) => (
+      <article class="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <span class="w-fit rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Business function</span>
+        <h2 class="mt-4 text-lg font-bold text-slate-950">{service.name}</h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">{service.description}</p>
+        <div class="mt-5 border-t border-slate-100 pt-4">
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Guided transactions</div>
+          <ul class="mt-3 space-y-2">
+            {service.transactions.map((transaction) => (
+              <li class="flex gap-2 text-sm text-slate-600"><span class="text-blue-600">→</span>{transaction}</li>
+            ))}
+          </ul>
+        </div>
+        <div class="mt-auto pt-6">
+          <button type="button" class="configure-service w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" data-service={service.name} data-description={service.description}>
+            Configure
+          </button>
+        </div>
+      </article>
+    ))}
+  </div>
+
+  <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <h2 class="text-lg font-bold text-slate-950">Configure once, use across channels</h2>
+    <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+      A business transaction should not need to be recreated for every communication channel. Configure the business function and transaction once, then expose it through the channels connected to the Chat Service.
+    </p>
+    <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {[
+        ["01", "Customer goal"],
+        ["02", "Guided transaction"],
+        ["03", "Business integration"],
+        ["04", "AI response"],
+        ["05", "Outcome intelligence"],
+      ].map(([number, label]) => (
+        <div class="rounded-xl bg-slate-50 p-4"><div class="text-xs text-slate-500">{number}</div><div class="mt-1 text-sm font-bold text-slate-950">{label}</div></div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Create/configure modal -->
+  <div id="service-modal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div id="modal-backdrop" class="absolute inset-0 bg-slate-950/50"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+      <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+          <div>
+            <h2 id="modal-title" class="text-xl font-bold text-slate-950">Create Chat Service</h2>
+            <p class="mt-1 text-sm text-slate-500">Connect a customer-facing business function to the dLogicAI API.</p>
+          </div>
+          <button id="close-modal" type="button" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">✕</button>
+        </div>
+
+        <form id="service-form" class="space-y-5 px-6 py-6">
+          <input id="service-id" type="hidden" />
+
+          <div>
+            <label for="service-name" class="block text-sm font-semibold text-slate-700">Service name</label>
+            <input id="service-name" required maxlength="100" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="Customer Support" />
+          </div>
+
+          <div>
+            <label for="service-description" class="block text-sm font-semibold text-slate-700">Description</label>
+            <textarea id="service-description" maxlength="500" rows="3" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="Describe what this service helps customers accomplish."></textarea>
+          </div>
+
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label for="service-project" class="block text-sm font-semibold text-slate-700">Project</label>
+              <select id="service-project" required class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"></select>
+            </div>
+            <div>
+              <label for="service-environment" class="block text-sm font-semibold text-slate-700">Environment</label>
+              <select id="service-environment" class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                <option value="development">Development</option>
+                <option value="staging">Staging</option>
+                <option value="production">Production</option>
+              </select>
+            </div>
+            <div>
+              <label for="service-language" class="block text-sm font-semibold text-slate-700">Default language</label>
+              <select id="service-language" class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                <option value="auto">Auto detect</option>
+                <option value="en">English</option>
+                <option value="ta">Tamil</option>
+                <option value="hi">Hindi</option>
+                <option value="zh">Chinese</option>
+              </select>
+            </div>
+            <div>
+              <label for="service-provider" class="block text-sm font-semibold text-slate-700">AI provider</label>
+              <select id="service-provider" class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                <option value="auto">Auto</option>
+                <option value="openai">OpenAI</option>
+                <option value="google">Google Gemini</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label for="service-model" class="block text-sm font-semibold text-slate-700">Model</label>
+            <input id="service-model" value="auto" maxlength="100" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-sm font-semibold text-slate-800">Conversation intelligence</div>
+            <div class="mt-3 grid gap-3 sm:grid-cols-3">
+              <label class="flex items-center gap-2 text-sm text-slate-700"><input id="enable-intelligence" type="checkbox" checked class="rounded border-slate-300 text-blue-600" /> Intelligence</label>
+              <label class="flex items-center gap-2 text-sm text-slate-700"><input id="enable-emotion" type="checkbox" checked class="rounded border-slate-300 text-blue-600" /> Emotion analysis</label>
+              <label class="flex items-center gap-2 text-sm text-slate-700"><input id="enable-upsell" type="checkbox" checked class="rounded border-slate-300 text-blue-600" /> Upsell analysis</label>
+            </div>
+          </div>
+
+          <p id="form-error" class="hidden rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700"></p>
+          <p id="form-success" class="hidden rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700"></p>
+
+          <div class="flex justify-end gap-3 border-t border-slate-200 pt-5">
+            <button id="cancel-modal" type="button" class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button id="submit-service" type="submit" class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Create Chat Service</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    const modal = document.querySelector("#service-modal");
+    const form = document.querySelector("#service-form");
+    const projectSelect = document.querySelector("#service-project");
+    const nameInput = document.querySelector("#service-name");
+    const descriptionInput = document.querySelector("#service-description");
+    const errorBox = document.querySelector("#form-error");
+    const successBox = document.querySelector("#form-success");
+    const submitButton = document.querySelector("#submit-service");
+
+    function openModal(name = "", description = "") {
+      modal?.classList.remove("hidden");
+      modal?.setAttribute("aria-hidden", "false");
+      if (nameInput) nameInput.value = name;
+      if (descriptionInput) descriptionInput.value = description;
+      if (errorBox) errorBox.classList.add("hidden");
+      if (successBox) successBox.classList.add("hidden");
+      setTimeout(() => nameInput?.focus(), 50);
+    }
+
+    function closeModal() {
+      modal?.classList.add("hidden");
+      modal?.setAttribute("aria-hidden", "true");
+    }
+
+    async function loadProjects() {
+      const response = await fetch("/api/projects", { credentials: "include" });
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error?.message || "Unable to load projects.");
+      const projects = data.projects || [];
+      projectSelect.innerHTML = projects.length
+        ? projects.map((p) => `<option value="${p.id}">${p.name} (${p.environment})</option>`).join("")
+        : `<option value="">No projects available</option>`;
+    }
+
+    document.querySelector("#create-service")?.addEventListener("click", async () => {
+      try {
+        await loadProjects();
+        openModal();
+      } catch (error) {
+        alert(error?.message || "Unable to open Chat Service creation.");
+      }
+    });
+
+    document.querySelectorAll(".configure-service").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await loadProjects();
+          openModal(button.getAttribute("data-service") || "", button.getAttribute("data-description") || "");
+        } catch (error) {
+          alert(error?.message || "Unable to open Chat Service configuration.");
+        }
+      });
+    });
+
+    document.querySelector("#close-modal")?.addEventListener("click", closeModal);
+    document.querySelector("#cancel-modal")?.addEventListener("click", closeModal);
+    document.querySelector("#modal-backdrop")?.addEventListener("click", closeModal);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal?.classList.contains("hidden")) closeModal();
+    });
+
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (errorBox) errorBox.classList.add("hidden");
+      if (successBox) successBox.classList.add("hidden");
+      submitButton.disabled = true;
+      submitButton.textContent = "Creating...";
+
+      try {
+        const projectId = projectSelect.value;
+        if (!projectId) throw new Error("Select a project first.");
+
+        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/chat-services`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: nameInput.value.trim(),
+            description: descriptionInput.value.trim() || undefined,
+            environment: document.querySelector("#service-environment").value,
+            default_language: document.querySelector("#service-language").value,
+            ai_provider: document.querySelector("#service-provider").value,
+            model: document.querySelector("#service-model").value.trim() || "auto",
+            enable_intelligence: document.querySelector("#enable-intelligence").checked,
+            enable_emotion_analysis: document.querySelector("#enable-emotion").checked,
+            enable_upsell_analysis: document.querySelector("#enable-upsell").checked,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error?.message || "Unable to create Chat Service.");
+
+        const serviceId = data?.chat_service?.id;
+        if (!serviceId) throw new Error("The API did not return a Chat Service ID.");
+
+        if (successBox) {
+          successBox.textContent = "Chat Service created successfully.";
+          successBox.classList.remove("hidden");
+        }
+
+        window.location.href = `/dashboard/chat-services/${encodeURIComponent(serviceId)}?projectId=${encodeURIComponent(projectId)}`;
+      } catch (error) {
+        if (errorBox) {
+          errorBox.textContent = error?.message || "Unable to create Chat Service.";
+          errorBox.classList.remove("hidden");
+        }
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Create Chat Service";
+      }
+    });
+  </script>
+</AppLayout>
