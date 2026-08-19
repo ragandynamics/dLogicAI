@@ -1,0 +1,86 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Dashboard" appShell={true}>
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Dashboard</h1>
+      <p id="welcome" class="mt-1 text-sm text-slate-600">Manage your dLogicAI workspace.</p>
+    </div>
+
+    <a href="/dashboard/billing" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+      Manage subscription
+    </a>
+  </div>
+
+  <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">Workspace</div>
+      <div id="tenant" class="mt-2 truncate text-xl font-bold text-slate-950">Loading…</div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">Plan</div>
+      <div id="plan" class="mt-2 text-xl font-bold text-slate-950">Loading…</div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">AI credits</div>
+      <div id="credits" class="mt-2 text-xl font-bold text-slate-950">Loading…</div>
+      <a href="/dashboard/credits" class="mt-2 inline-block text-xs font-semibold text-blue-600 hover:text-blue-700">View ledger →</a>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">Included requests</div>
+      <div id="quota" class="mt-2 text-xl font-bold text-slate-950">—</div>
+    </div>
+  </div>
+
+  <div class="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+    <a href="/dashboard/services" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <h2 class="font-bold text-slate-950">Customer chat services</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Configure guided customer journeys for sales, service, payments, billing, booking and appointments.</p>
+    </a>
+
+    <a href="/dashboard/usage" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <h2 class="font-bold text-slate-950">Conversation intelligence</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Monitor intent, emotion, urgency, purchase intent, upsell probability, churn risk and escalation signals.</p>
+    </a>
+
+    <a href="/dashboard/providers" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <h2 class="font-bold text-slate-950">AI provider</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Use dLogicAI managed AI or configure a tenant-managed provider for a project.</p>
+    </a>
+  </div>
+
+  <script is:inline>
+    fetch("/api/me", { credentials: "include" }).then(async (r) => {
+      if (!r.ok) {
+        location.href = "/login";
+        return;
+      }
+
+      const d = await r.json();
+
+      document.querySelector("#welcome").textContent =
+        `Manage ${d.tenant?.name || "your"} dLogicAI workspace.`;
+
+      document.querySelector("#tenant").textContent =
+        d.tenant?.name || "—";
+
+      document.querySelector("#plan").textContent =
+        d.subscription?.plan_name || "—";
+
+      document.querySelector("#quota").textContent =
+        Number(d.subscription?.included_requests || 0).toLocaleString();
+
+      document.querySelector("#credits").textContent =
+        Number(
+          d.credits?.total_available ??
+          d.credits?.subscription_balance ??
+          0
+        ).toLocaleString();
+    });
+  </script>
+</AppLayout>

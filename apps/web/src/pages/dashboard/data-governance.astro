@@ -1,0 +1,123 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Data Governance" appShell={true}>
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Data Governance</h1>
+    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Control tenant data retention, backups and archival policies. These settings define the intended governance policy for conversations and related tenant data.</p>
+  </div>
+
+  <div class="mt-8 grid gap-5 xl:grid-cols-3">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="font-bold text-slate-950">Active data retention</h2>
+          <p class="mt-1 text-sm text-slate-500">How long operational conversation data remains readily accessible.</p>
+        </div>
+        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Tenant policy</span>
+      </div>
+      <label class="mt-6 block text-sm font-medium text-slate-700" for="retention-days">Retention period</label>
+      <select id="retention-days" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+        <option value="30">30 days</option>
+        <option value="90">90 days</option>
+        <option value="180">180 days</option>
+        <option value="365" selected>365 days</option>
+        <option value="730">730 days</option>
+      </select>
+      <p class="mt-3 text-xs leading-5 text-slate-500">Shorter retention reduces storage exposure and may reduce storage/archival charges.</p>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="font-bold text-slate-950">Backup policy</h2>
+          <p class="mt-1 text-sm text-slate-500">Protect tenant data with scheduled recovery points.</p>
+        </div>
+        <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Protected</span>
+      </div>
+      <label class="mt-6 block text-sm font-medium text-slate-700" for="backup-frequency">Backup frequency</label>
+      <select id="backup-frequency" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+        <option>Daily</option>
+        <option selected>Every 6 hours</option>
+        <option>Hourly</option>
+      </select>
+      <label class="mt-5 block text-sm font-medium text-slate-700" for="backup-retention">Backup retention</label>
+      <select id="backup-retention" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+        <option>7 days</option>
+        <option selected>30 days</option>
+        <option>90 days</option>
+        <option>365 days</option>
+      </select>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="font-bold text-slate-950">Archival</h2>
+          <p class="mt-1 text-sm text-slate-500">Move older tenant data to lower-cost long-term storage.</p>
+        </div>
+        <span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">Long-term</span>
+      </div>
+      <label class="mt-6 flex items-center gap-3 text-sm font-medium text-slate-700">
+        <input id="archive-enabled" type="checkbox" checked class="h-4 w-4 rounded border-slate-300" />
+        Enable archival
+      </label>
+      <label class="mt-5 block text-sm font-medium text-slate-700" for="archive-after">Archive after</label>
+      <select id="archive-after" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+        <option>90 days</option>
+        <option selected>180 days</option>
+        <option>365 days</option>
+        <option>730 days</option>
+      </select>
+      <p class="mt-3 text-xs leading-5 text-slate-500">Archived data can be retained longer and may carry separate storage, retrieval or export charges.</p>
+    </section>
+  </div>
+
+  <section class="mt-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 class="font-bold text-slate-950">Billing impact</h2>
+        <p class="mt-1 text-sm leading-6 text-slate-600">Your subscription can bundle baseline retention and backup capacity. Additional storage, archival volume, retrieval and export usage can be metered as add-ons or overages.</p>
+      </div>
+      <a href="/dashboard/billing" class="shrink-0 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">View billing</a>
+    </div>
+  </section>
+
+  <div class="mt-6 flex items-center gap-4">
+    <button id="save-governance" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Save policy</button>
+    <p id="governance-message" class="text-sm text-slate-500"></p>
+  </div>
+
+  <script is:inline>
+    const STORAGE_KEY = "dlogicai-governance-preview";
+    const fields = ["retention-days", "backup-frequency", "backup-retention", "archive-enabled", "archive-after"];
+    const message = document.querySelector("#governance-message");
+
+    function loadPreview() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        if (!saved) return;
+        for (const id of fields) {
+          const el = document.querySelector(`#${id}`);
+          if (!el || saved[id] === undefined) continue;
+          if (el.type === "checkbox") el.checked = Boolean(saved[id]);
+          else el.value = saved[id];
+        }
+      } catch {}
+    }
+
+    document.querySelector("#save-governance")?.addEventListener("click", () => {
+      const data = {};
+      for (const id of fields) {
+        const el = document.querySelector(`#${id}`);
+        if (el) data[id] = el.type === "checkbox" ? el.checked : el.value;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      message.textContent = "Policy saved in this browser. Connect the tenant governance API to persist it server-side.";
+      message.className = "text-sm text-emerald-600";
+    });
+
+    loadPreview();
+  </script>
+</AppLayout>

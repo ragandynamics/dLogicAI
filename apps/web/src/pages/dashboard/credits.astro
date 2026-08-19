@@ -1,0 +1,100 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="AI Credits" appShell={true}>
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">AI Credits</h1>
+    <p class="mt-1 text-sm text-slate-600">Monitor subscription, purchased and promotional AI credits.</p>
+  </div>
+
+  <div id="cards" class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+
+  <div class="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-200 px-5 py-4">
+      <h2 class="font-bold text-slate-950">Credit ledger</h2>
+      <p class="mt-1 text-sm text-slate-500">Every credit grant and consumption event is recorded here.</p>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-left text-sm">
+        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-5 py-3">Date</th>
+            <th class="px-5 py-3">Type</th>
+            <th class="px-5 py-3">Source</th>
+            <th class="px-5 py-3">Description</th>
+            <th class="px-5 py-3 text-right">Amount</th>
+            <th class="px-5 py-3 text-right">Balance</th>
+          </tr>
+        </thead>
+        <tbody id="ledger" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p id="error" class="mt-5 min-h-5 text-sm text-red-600"></p>
+
+  <script is:inline>
+    const cards = document.querySelector("#cards");
+    const ledger = document.querySelector("#ledger");
+    const error = document.querySelector("#error");
+
+    const format = (value) => Number(value || 0).toLocaleString();
+
+    async function load() {
+      try {
+        const [creditData, ledgerData] = await Promise.all([
+          fetch("/api/billing/credits", { credentials: "include" }).then(async r => {
+            const d = await r.json();
+            if (!r.ok) throw new Error(d?.error?.message || "Unable to load credits.");
+            return d;
+          }),
+          fetch("/api/billing/credits/ledger?limit=100", { credentials: "include" }).then(async r => {
+            const d = await r.json();
+            if (!r.ok) throw new Error(d?.error?.message || "Unable to load ledger.");
+            return d;
+          }),
+        ]);
+
+        const c = creditData.credits;
+
+        cards.innerHTML = [
+          ["Available", c.total_available],
+          ["Subscription", c.subscription_balance],
+          ["Purchased", c.purchased_balance],
+          ["Promotional", c.promotional_balance],
+        ].map(([label, value]) => `
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-sm text-slate-500">${label}</p>
+            <p class="mt-2 text-2xl font-extrabold text-slate-950">${format(value)}</p>
+            <p class="mt-1 text-xs text-slate-400">credit units</p>
+          </div>
+        `).join("");
+
+        const rows = ledgerData.ledger || [];
+
+        ledger.innerHTML = rows.length
+          ? rows.map(row => `
+              <tr>
+                <td class="whitespace-nowrap px-5 py-3 text-slate-600">${new Date(Number(row.created_at)).toLocaleString()}</td>
+                <td class="px-5 py-3"><span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">${row.entry_type}</span></td>
+                <td class="px-5 py-3 text-slate-600">${row.source || "—"}</td>
+                <td class="min-w-[240px] px-5 py-3 text-slate-700">${row.description || "—"}</td>
+                <td class="px-5 py-3 text-right font-semibold ${Number(row.amount) >= 0 ? "text-emerald-600" : "text-red-600"}">${Number(row.amount) >= 0 ? "+" : ""}${format(row.amount)}</td>
+                <td class="px-5 py-3 text-right font-semibold text-slate-900">${format(row.balance_after)}</td>
+              </tr>
+            `).join("")
+          : `<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">No credit ledger entries yet.</td></tr>`;
+      } catch (err) {
+        if (err.message?.includes("Authentication")) {
+          location.href = "/login";
+          return;
+        }
+        error.textContent = err.message || "Unable to load credits.";
+      }
+    }
+
+    load();
+  </script>
+</AppLayout>

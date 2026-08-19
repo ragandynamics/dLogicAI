@@ -1,0 +1,771 @@
+openapi: 3.0.3
+info:
+  title: dLogicAI API
+  version: 0.1.0
+  description: dLogicAI API for AI responses, projects, provider configuration, usage, and conversations.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local development
+  - url: https://api.dLogicAI.com
+    description: Production
+
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Projects
+  - name: API Keys
+  - name: Providers
+  - name: Responses
+  - name: Usage
+  - name: Conversations
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register an account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created; a session cookie is issued
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Log in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful; a session cookie is issued
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: No workspace is associated with this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Log out
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /v1/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user, workspace, and subscription
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Current account information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/projects:
+    get:
+      tags: [Projects]
+      summary: List projects
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Projects belonging to the current workspace
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Projects]
+      summary: Create a project
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          description: Project limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/projects/{projectId}/api-keys:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      tags: [API Keys]
+      summary: List project API keys
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: API key metadata; secrets are not returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/APIKeySummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [API Keys]
+      summary: Create a project API key
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPIKeyRequest"
+      responses:
+        "201":
+          description: API key created; the secret is returned only once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAPIKeyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "402":
+          description: API key limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/projects/{projectId}/providers:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      tags: [Providers]
+      summary: List configured providers
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Configured providers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProviderSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Providers]
+      summary: Configure an AI provider
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderRequest"
+      responses:
+        "201":
+          description: Provider configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credential:
+                    $ref: "#/components/schemas/ProviderCredential"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/responses:
+    post:
+      tags: [Responses]
+      summary: Generate an AI response
+      description: Main developer-facing AI endpoint. Authenticate with a project API key using Authorization: Bearer sk_...
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResponseRequest"
+      responses:
+        "200":
+          description: AI response generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseResponse"
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          description: Monthly API request quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream AI provider error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/usage:
+    get:
+      tags: [Usage]
+      summary: Get usage statistics
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        "200":
+          description: Usage summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/conversations:
+    get:
+      tags: [Conversations]
+      summary: List conversations
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Up to 100 conversations ordered by most recent update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Conversation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/conversations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Conversations]
+      summary: Get a conversation and messages
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Conversation and messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: dLogicAI project API key, for example sk_live_...
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: dLogicAI_session
+      description: Dashboard session cookie.
+
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    InvalidRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: UNAUTHORIZED
+            message:
+              type: string
+              example: Authentication required.
+
+    HealthResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        service:
+          type: string
+          example: dLogicAI-api
+        version:
+          type: string
+          example: 0.1.0
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 200
+
+    RegisterResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        tenant:
+          $ref: "#/components/schemas/Tenant"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        tenantId:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string }
+
+    Tenant:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        default_language: { type: string }
+
+    Subscription:
+      type: object
+      properties:
+        status: { type: string }
+        plan_name: { type: string }
+        monthly_price_cents: { type: integer }
+        included_requests: { type: integer }
+
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        tenant:
+          $ref: "#/components/schemas/Tenant"
+        subscription:
+          $ref: "#/components/schemas/Subscription"
+
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        environment:
+          type: string
+          enum: [development, staging, production]
+        status: { type: string }
+        created_at: { type: integer }
+        updated_at: { type: integer }
+
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        environment:
+          type: string
+          enum: [development, staging, production]
+          default: production
+
+    CreateAPIKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          default: API key
+
+    APIKeySummary:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        key_prefix: { type: string }
+        status: { type: string }
+        created_at: { type: integer }
+        last_used_at:
+          type: integer
+          nullable: true
+
+    CreateAPIKeyResponse:
+      type: object
+      properties:
+        api_key:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            prefix: { type: string }
+            secret:
+              type: string
+              example: sk_live_...
+            created_at: { type: integer }
+        warning:
+          type: string
+          example: Store this secret now. It will not be shown again.
+
+    CreateProviderRequest:
+      type: object
+      required: [provider, name, api_key]
+      properties:
+        provider:
+          type: string
+          enum: [openai, google]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        api_key:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 1000
+
+    ProviderSummary:
+      type: object
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        name: { type: string }
+        status: { type: string }
+        created_at: { type: integer }
+        last_used_at:
+          type: integer
+          nullable: true
+
+    ProviderCredential:
+      type: object
+      properties:
+        id: { type: string }
+        provider:
+          type: string
+          enum: [openai, google]
+        name: { type: string }
+
+    ResponseRequest:
+      type: object
+      required: [input]
+      properties:
+        model:
+          type: string
+          default: auto
+        provider:
+          type: string
+          enum: [openai, google]
+        input:
+          description: String input or an array of chat-style messages.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                properties:
+                  role: { type: string }
+                  content: {}
+        conversation_id:
+          type: string
+        language:
+          type: string
+          default: auto
+        response_language:
+          type: string
+          default: auto
+        locale:
+          type: string
+          nullable: true
+        stream:
+          type: boolean
+          default: false
+
+    ResponseResponse:
+      type: object
+      properties:
+        id: { type: string }
+        conversation_id: { type: string }
+        model: { type: string }
+        provider: { type: string }
+        billing_mode:
+          type: string
+          enum: [managed, byok]
+        output_text: { type: string }
+        language:
+          type: object
+          properties:
+            input: { type: string }
+            output: { type: string }
+            locale:
+              type: string
+              nullable: true
+        usage:
+          $ref: "#/components/schemas/TokenUsage"
+
+    TokenUsage:
+      type: object
+      properties:
+        input_tokens: { type: integer }
+        output_tokens: { type: integer }
+        total_tokens: { type: integer }
+
+    UsageSummary:
+      type: object
+      properties:
+        requests: { type: integer }
+        input_tokens: { type: integer }
+        output_tokens: { type: integer }
+        provider_cost_micros: { type: integer }
+        customer_charge_micros: { type: integer }
+
+    UsageByProvider:
+      type: object
+      properties:
+        provider: { type: string }
+        billing_mode: { type: string }
+        requests: { type: integer }
+        provider_cost_micros: { type: integer }
+        customer_charge_micros: { type: integer }
+
+    UsageResponse:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/UsageSummary"
+        by_provider:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageByProvider"
+
+    Conversation:
+      type: object
+      properties:
+        id: { type: string }
+        project_id: { type: string }
+        title: { type: string }
+        model: { type: string }
+        language: { type: string }
+        locale:
+          type: string
+          nullable: true
+        created_at: { type: integer }
+        updated_at: { type: integer }
+
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        role: { type: string }
+        content: { type: string }
+        input_tokens: { type: integer }
+        output_tokens: { type: integer }
+        created_at: { type: integer }
+
+    ConversationDetailResponse:
+      type: object
+      properties:
+        conversation:
+          $ref: "#/components/schemas/Conversation"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"

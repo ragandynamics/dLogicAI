@@ -1,0 +1,97 @@
+---
+import AppLayout from "../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Pricing">
+  <div class="min-h-screen bg-slate-50">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <a href="/" class="text-xl font-extrabold tracking-tight text-slate-950">dLogicAI</a>
+        <div class="flex items-center gap-2">
+          <a href="/login" class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Sign in</a>
+          <a href="/register" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Create account</a>
+        </div>
+      </div>
+    </header>
+
+    <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-2xl text-center">
+        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+          dLogicAI plans
+        </span>
+        <h1 class="mt-5 text-4xl font-extrabold tracking-tight text-slate-950">
+          Start small. Scale when your customer conversations grow.
+        </h1>
+        <p class="mt-4 text-slate-600">
+          Subscription plans provide request entitlements and the AI-credit foundation for your workspace.
+        </p>
+      </div>
+
+      <div id="plans" class="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          Loading plans…
+        </div>
+      </div>
+
+      <p id="error" class="mt-6 text-center text-sm text-red-600"></p>
+    </section>
+  </div>
+
+  <script is:inline>
+    const plansElement = document.querySelector("#plans");
+    const errorElement = document.querySelector("#error");
+
+    const money = (cents) =>
+      Number(cents || 0) === 0
+        ? "$0"
+        : `$${(Number(cents) / 100).toFixed(0)}`;
+
+    const formatCredits = (micros) => {
+      const n = Number(micros || 0);
+      return n >= 1000000 ? `${(n / 1000000).toFixed(2)} credits` : `${n.toLocaleString()} credit units`;
+    };
+
+    async function loadPlans() {
+      try {
+        const response = await fetch("/api/plans", { credentials: "include" });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error?.message || "Unable to load plans.");
+        }
+
+        const plans = data.plans || [];
+
+        plansElement.innerHTML = plans.map((plan) => `
+          <article class="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-xl font-bold text-slate-950">${plan.name}</h2>
+            <div class="mt-4">
+              <span class="text-4xl font-extrabold text-slate-950">${money(plan.monthly_price_cents)}</span>
+              <span class="text-sm text-slate-500">${Number(plan.monthly_price_cents || 0) ? "/ month" : "forever"}</span>
+            </div>
+
+            <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-600">
+              <li>✓ ${Number(plan.included_requests || 0).toLocaleString()} included requests</li>
+              <li>✓ ${formatCredits(plan.included_ai_credit_micros)} included AI credits</li>
+              <li>✓ ${plan.max_projects ?? "—"} projects</li>
+              <li>✓ ${plan.max_api_keys ?? "—"} API keys</li>
+              ${plan.max_team_members != null ? `<li>✓ ${plan.max_team_members} team members</li>` : ""}
+            </ul>
+
+            <a
+              href="${Number(plan.monthly_price_cents || 0) === 0 ? "/register" : "/register"}"
+              class="mt-8 rounded-lg ${Number(plan.monthly_price_cents || 0) === 0 ? "bg-slate-900" : "bg-blue-600"} px-4 py-2.5 text-center text-sm font-semibold text-white hover:opacity-90"
+            >
+              ${Number(plan.monthly_price_cents || 0) === 0 ? "Start free" : "Choose plan"}
+            </a>
+          </article>
+        `).join("");
+      } catch (err) {
+        errorElement.textContent =
+          err instanceof Error ? err.message : "Unable to load plans.";
+      }
+    }
+
+    loadPlans();
+  </script>
+</AppLayout>

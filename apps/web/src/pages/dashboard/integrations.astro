@@ -1,0 +1,75 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+
+const connectors = [
+  ["CRM", "Salesforce", "Customer profiles, leads, opportunities and account activity", "Connected", "10,000", "7,240"],
+  ["CRM", "HubSpot", "Contacts, companies, deals and engagement history", "Available", "5,000", "0"],
+  ["Support", "Zendesk", "Tickets, customer context and support outcomes", "Connected", "5,000", "3,182"],
+  ["ERP", "SAP", "Orders, customer records and operational status", "Available", "2,000", "0"],
+  ["Messaging", "WhatsApp Business", "Conversation delivery and customer interaction events", "Connected", "20,000", "12,486"],
+];
+---
+
+<AppLayout title="Integrations" appShell={true}>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Integration Connectors</h1>
+      <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Connect dLogicAI to CRM, support, ERP and messaging systems. Each connector can have an included monthly API-call allowance; additional calls are billed separately.</p>
+    </div>
+    <a href="/dashboard/billing" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">View connector billing</a>
+  </div>
+
+  <div class="mt-8 grid gap-5 xl:grid-cols-2">
+    {connectors.map(([category, name, desc, status, allowance, used]) => {
+      const pct = Math.min(100, (Number(used.replaceAll(",", "")) / Number(allowance.replaceAll(",", ""))) * 100);
+      return (
+        <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">{category}</span>
+                <span class:list={["rounded-full px-2.5 py-1 text-[10px] font-bold", status === "Connected" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"]}>{status}</span>
+              </div>
+              <h2 class="mt-3 text-lg font-bold text-slate-950">{name}</h2>
+              <p class="mt-1 text-sm leading-6 text-slate-600">{desc}</p>
+            </div>
+            <button class="shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">{status === "Connected" ? "Manage" : "Connect"}</button>
+          </div>
+
+          <div class="mt-6 rounded-xl bg-slate-50 p-4">
+            <div class="flex items-center justify-between gap-4 text-sm">
+              <span class="font-medium text-slate-700">Monthly API calls</span>
+              <span class="font-semibold text-slate-950">{used} / {allowance}</span>
+            </div>
+            <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+              <div class="h-full rounded-full bg-blue-600" style={`width:${pct}%`}></div>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-4 text-xs text-slate-500">
+              <span>{Math.max(0, Number(allowance.replaceAll(",", "")) - Number(used.replaceAll(",", ""))).toLocaleString()} calls remaining</span>
+              <span>Overage: billed per additional call</span>
+            </div>
+          </div>
+        </article>
+      );
+    })}
+  </div>
+
+  <section class="mt-5 grid gap-5 lg:grid-cols-3">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="text-xs font-bold uppercase tracking-wide text-blue-700">1 · Included</div>
+      <h2 class="mt-2 font-bold text-slate-950">Bundled connector calls</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Your subscription can include a fixed number of connector API calls per month.</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="text-xs font-bold uppercase tracking-wide text-blue-700">2 · Overage</div>
+      <h2 class="mt-2 font-bold text-slate-950">Additional calls</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Calls beyond the bundled allowance are metered and billed separately using your configured connector rate.</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="text-xs font-bold uppercase tracking-wide text-blue-700">3 · Forecast</div>
+      <h2 class="mt-2 font-bold text-slate-950">Cost visibility</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">The billing estimator can combine subscription bundles, connector overages, retention, archival and other add-ons into a forecast.</p>
+      <a href="/dashboard/billing" class="mt-4 inline-block text-sm font-semibold text-blue-600 hover:text-blue-700">Open estimator →</a>
+    </div>
+  </section>
+</AppLayout>
