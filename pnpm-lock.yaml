@@ -18,10 +18,10 @@ importers:
   apps/api:
     dependencies:
       hono:
-        specifier: ^4.9.8
+        specifier: ^4.13.3
         version: 4.13.3
       zod:
-        specifier: ^4.1.8
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@cloudflare/workers-types':

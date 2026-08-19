@@ -1,0 +1,239 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  appShell?: boolean;
+}
+
+const { title = "dLogicAI", appShell = false } = Astro.props;
+const pathname = Astro.url.pathname;
+
+const navGroups = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard/services", label: "Chat Services" },
+      { href: "/dashboard/channels", label: "Channels" },
+      { href: "/dashboard/conversations", label: "Conversations" },
+      { href: "/dashboard/usage", label: "Usage & Intelligence" },
+    ],
+  },
+  {
+    label: "Development",
+    items: [
+      { href: "/dashboard/projects", label: "Projects" },
+      { href: "/dashboard/providers", label: "AI Providers" },
+      { href: "/dashboard/api-keys", label: "API Keys" },
+    ],
+  },
+  {
+    label: "Billing",
+    items: [
+      { href: "/dashboard/billing", label: "Subscription" },
+      { href: "/dashboard/credits", label: "AI Credits" },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { href: "/dashboard/team", label: "Team" },
+      { href: "/dashboard/settings", label: "Settings" },
+    ],
+  },
+];
+
+const isActive = (href: string) =>
+  pathname === href ||
+  (href !== "/dashboard" && pathname.startsWith(`${href}/`));
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+
+    <meta
+      name="theme-color"
+      content="#101828"
+    />
+
+    <meta
+      name="description"
+      content="dLogicAI — Conversations That Drive Business."
+    />
+
+    <title>{title} · dLogicAI</title>
+  </head>
+
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    {
+      appShell ? (
+        <div class="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
+
+          <!-- Desktop sidebar -->
+          <aside class="hidden min-h-screen bg-dlogic-navy text-white lg:block">
+            <div class="sticky top-0 flex min-h-screen flex-col px-4 py-6">
+
+              <a
+                href="/dashboard"
+                class="mb-2 px-3 text-2xl font-extrabold tracking-tight"
+              >
+                dLogicAI
+              </a>
+
+              <div class="mb-8 px-3 text-xs text-slate-400">
+                Conversations That Drive Business.
+              </div>
+
+              <nav
+                class="space-y-6"
+                aria-label="Main navigation"
+              >
+                {navGroups.map((group) => (
+                  <div>
+                    <div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                      {group.label}
+                    </div>
+
+                    <div class="space-y-1">
+                      {group.items.map((item) => (
+                        <a
+                          href={item.href}
+                          class:list={[
+                            "block rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                            isActive(item.href)
+                              ? "bg-white/10 text-white"
+                              : "text-slate-300 hover:bg-white/5 hover:text-white",
+                          ]}
+                          aria-current={
+                            isActive(item.href)
+                              ? "page"
+                              : undefined
+                          }
+                        >
+                          {item.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </nav>
+
+              <div class="mt-auto space-y-2 border-t border-white/10 pt-4">
+                <button
+                  id="logout"
+                  class="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+                >
+                  Sign out
+                </button>
+
+                <a
+                  href="/"
+                  class="block rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+                >
+                  Back to home
+                </a>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main area -->
+          <div class="min-w-0">
+
+            <!-- Mobile header -->
+            <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+
+              <div class="flex items-center justify-between gap-4 px-4 py-3">
+
+                <div>
+                  <a
+                    href="/dashboard"
+                    class="text-xl font-extrabold tracking-tight text-slate-900"
+                  >
+                    dLogicAI
+                  </a>
+
+                  <div class="text-[10px] text-slate-500">
+                    Conversations That Drive Business.
+                  </div>
+                </div>
+
+                <button
+                  id="mobile-logout"
+                  class="text-sm font-medium text-slate-600 hover:text-slate-900"
+                >
+                  Sign out
+                </button>
+              </div>
+
+              <nav
+                class="flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2"
+                aria-label="Mobile navigation"
+              >
+                {navGroups
+                  .flatMap((group) => group.items)
+                  .map((item) => (
+                    <a
+                      href={item.href}
+                      class:list={[
+                        "shrink-0 rounded-lg px-3 py-2 text-xs font-medium",
+                        isActive(item.href)
+                          ? "bg-blue-50 text-blue-700"
+                          : "text-slate-600 hover:bg-slate-50",
+                      ]}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+              </nav>
+            </header>
+
+            <!-- Page content -->
+            <main class="min-w-0 w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+              <div class="mx-auto w-full max-w-[1500px]">
+                <slot />
+              </div>
+            </main>
+          </div>
+        </div>
+      ) : (
+        <main class="min-h-screen w-full">
+          <slot />
+        </main>
+      )
+    }
+  </body>
+
+  {
+    appShell && (
+      <script is:inline>
+        async function logout() {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: "{}",
+          });
+
+          window.location.href = "/login";
+        }
+
+        document
+          .querySelector("#logout")
+          ?.addEventListener("click", logout);
+
+        document
+          .querySelector("#mobile-logout")
+          ?.addEventListener("click", logout);
+      </script>
+    )
+  }
+</html>

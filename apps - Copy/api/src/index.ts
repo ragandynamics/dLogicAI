@@ -5,7 +5,7 @@ import { z } from "zod";
 /* -------------------------------------------------------------------------- */
 /* TYPES                                                                      */
 /* -------------------------------------------------------------------------- */
-const PBKDF2_MAX_ITERATIONS = 100000;
+
 type Env = {
   DB: D1Database;
   SESSION_SECRET: string;
@@ -287,10 +287,8 @@ async function hashPassword(password: string) {
     false,
     ["deriveBits"]
   );
-  const PBKDF2_ITERATIONS = 100000;
 
-  const iterations = PBKDF2_ITERATIONS;
-  
+  const iterations = 150000;
 
   const bits = await crypto.subtle.deriveBits(
     {
@@ -334,8 +332,7 @@ async function verifyPassword(
 
     if (
       !Number.isInteger(iterations) ||
-      iterations <= 0 ||
-  iterations > PBKDF2_MAX_ITERATIONS
+      iterations <= 0
     ) {
       return false;
     }

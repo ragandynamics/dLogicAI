@@ -1,0 +1,14 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="Usage & Intelligence" appShell={true}>
+  <div><h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Usage & Intelligence</h1><p class="mt-1 text-sm text-slate-600">Monitor requests, tokens, provider costs and customer intelligence.</p></div>
+  <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Requests</div><div id="requests" class="mt-2 text-3xl font-bold text-slate-950">—</div></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Input tokens</div><div id="input" class="mt-2 text-3xl font-bold text-slate-950">—</div></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Output tokens</div><div id="output" class="mt-2 text-3xl font-bold text-slate-950">—</div></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Customer charges</div><div id="charges" class="mt-2 text-3xl font-bold text-slate-950">—</div></div>
+  </div>
+</AppLayout>
+<script is:inline>fetch("/api/usage").then(async r => { if (!r.ok) { location.href = "/login"; return; } const d = await r.json(), s = d.summary || {}; document.querySelector("#requests")!.textContent = s.requests ?? 0; document.querySelector("#input")!.textContent = s.input_tokens ?? 0; document.querySelector("#output")!.textContent = s.output_tokens ?? 0; document.querySelector("#charges")!.textContent = ((s.customer_charge_micros ?? 0) / 1000000).toFixed(2); });</script>

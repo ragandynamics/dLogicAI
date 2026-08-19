@@ -1,0 +1,402 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout
+  title="Dashboard"
+  appShell={true}
+>
+  <!-- Header -->
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+        Dashboard
+      </h1>
+
+      <p
+        id="welcome"
+        class="mt-1 text-sm text-slate-600"
+      >
+        Manage your dLogicAI workspace.
+      </p>
+
+      <p class="mt-2 text-sm font-medium text-blue-700">
+        Conversations That Drive Business.
+      </p>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+
+      <a
+        href="/dashboard/channels"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        Manage channels
+      </a>
+
+      <a
+        href="/dashboard/billing"
+        class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+      >
+        Manage subscription
+      </a>
+
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">
+        Workspace
+      </div>
+
+      <div
+        id="tenant"
+        class="mt-2 truncate text-xl font-bold text-slate-950"
+      >
+        Loading…
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">
+        Plan
+      </div>
+
+      <div
+        id="plan"
+        class="mt-2 text-xl font-bold text-slate-950"
+      >
+        Loading…
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">
+        AI credits
+      </div>
+
+      <div
+        id="credits"
+        class="mt-2 text-xl font-bold text-slate-950"
+      >
+        Loading…
+      </div>
+
+      <a
+        href="/dashboard/credits"
+        class="mt-2 inline-block text-xs font-semibold text-blue-600 hover:text-blue-700"
+      >
+        View ledger →
+      </a>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-sm text-slate-500">
+        Included requests
+      </div>
+
+      <div
+        id="quota"
+        class="mt-2 text-xl font-bold text-slate-950"
+      >
+        —
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Channels -->
+  <section class="mt-8">
+
+    <div class="flex items-end justify-between">
+
+      <div>
+        <h2 class="text-lg font-bold text-slate-950">
+          Customer channels
+        </h2>
+
+        <p class="mt-1 text-sm text-slate-600">
+          Connect customers to the same dLogicAI conversation engine.
+        </p>
+      </div>
+
+      <a
+        href="/dashboard/channels"
+        class="text-sm font-semibold text-blue-600 hover:text-blue-700"
+      >
+        Manage →
+      </a>
+
+    </div>
+
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <div class="text-xs font-bold text-emerald-700">
+          WEB
+        </div>
+
+        <div class="mt-1 text-sm font-semibold text-slate-950">
+          Web Chat
+        </div>
+
+        <div class="mt-1 text-xs text-emerald-700">
+          Available
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div class="text-xs font-bold text-amber-700">
+          WA
+        </div>
+
+        <div class="mt-1 text-sm font-semibold text-slate-950">
+          WhatsApp
+        </div>
+
+        <div class="mt-1 text-xs text-amber-700">
+          Coming soon
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-600">
+          FB
+        </div>
+
+        <div class="mt-1 text-sm font-semibold text-slate-950">
+          Facebook
+        </div>
+
+        <div class="mt-1 text-xs text-slate-500">
+          Planned
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-600">
+          IG
+        </div>
+
+        <div class="mt-1 text-sm font-semibold text-slate-950">
+          Instagram
+        </div>
+
+        <div class="mt-1 text-xs text-slate-500">
+          Planned
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-600">
+          TG
+        </div>
+
+        <div class="mt-1 text-sm font-semibold text-slate-950">
+          Telegram
+        </div>
+
+        <div class="mt-1 text-xs text-slate-500">
+          Planned
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-600">
+          TT
+        </div>
+
+        <div class="mt-1 text-sm font-semibold text-slate-950">
+          TikTok
+        </div>
+
+        <div class="mt-1 text-xs text-slate-500">
+          Planned
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Main capabilities -->
+  <div class="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+    <a
+      href="/dashboard/services"
+      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <h2 class="font-bold text-slate-950">
+        Customer chat services
+      </h2>
+
+      <p class="mt-2 text-sm leading-6 text-slate-600">
+        Configure guided customer journeys for sales, service, payments,
+        billing, booking and appointments.
+      </p>
+    </a>
+
+    <a
+      href="/dashboard/usage"
+      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <h2 class="font-bold text-slate-950">
+        Conversation intelligence
+      </h2>
+
+      <p class="mt-2 text-sm leading-6 text-slate-600">
+        Monitor intent, emotion, urgency, purchase intent, upsell probability,
+        churn risk and escalation signals.
+      </p>
+    </a>
+
+    <a
+      href="/dashboard/providers"
+      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <h2 class="font-bold text-slate-950">
+        AI provider
+      </h2>
+
+      <p class="mt-2 text-sm leading-6 text-slate-600">
+        Use dLogicAI managed AI or configure a tenant-managed provider for a
+        project.
+      </p>
+    </a>
+
+  </div>
+
+  <!-- Business architecture -->
+  <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+      <div>
+        <h2 class="text-lg font-bold text-slate-950">
+          How dLogicAI works
+        </h2>
+
+        <p class="mt-1 text-sm text-slate-600">
+          Every customer interaction follows the same business intelligence
+          and transaction pipeline.
+        </p>
+      </div>
+
+      <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+        Conversations That Drive Business.
+      </span>
+
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+
+      <div class="rounded-xl bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-500">
+          01
+        </div>
+
+        <div class="mt-2 text-sm font-bold text-slate-950">
+          Customer message
+        </div>
+
+        <div class="mt-1 text-xs leading-5 text-slate-500">
+          Web, WhatsApp or another connected channel.
+        </div>
+      </div>
+
+      <div class="rounded-xl bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-500">
+          02
+        </div>
+
+        <div class="mt-2 text-sm font-bold text-slate-950">
+          Conversation intelligence
+        </div>
+
+        <div class="mt-1 text-xs leading-5 text-slate-500">
+          Intent, emotion, sentiment, urgency and entities.
+        </div>
+      </div>
+
+      <div class="rounded-xl bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-500">
+          03
+        </div>
+
+        <div class="mt-2 text-sm font-bold text-slate-950">
+          Guided transaction
+        </div>
+
+        <div class="mt-1 text-xs leading-5 text-slate-500">
+          Drive the customer toward a business outcome.
+        </div>
+      </div>
+
+      <div class="rounded-xl bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-500">
+          04
+        </div>
+
+        <div class="mt-2 text-sm font-bold text-slate-950">
+          Business action
+        </div>
+
+        <div class="mt-1 text-xs leading-5 text-slate-500">
+          CRM, payment, billing, booking or other APIs.
+        </div>
+      </div>
+
+      <div class="rounded-xl bg-slate-50 p-4">
+        <div class="text-xs font-bold text-slate-500">
+          05
+        </div>
+
+        <div class="mt-2 text-sm font-bold text-slate-950">
+          Outcome
+        </div>
+
+        <div class="mt-1 text-xs leading-5 text-slate-500">
+          Completed transaction and measurable intelligence.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <script is:inline>
+    fetch("/api/me", {
+      credentials: "include",
+    }).then(async (r) => {
+      if (!r.ok) {
+        location.href = "/login";
+        return;
+      }
+
+      const d = await r.json();
+
+      document.querySelector("#welcome").textContent =
+        `Manage ${d.tenant?.name || "your"} dLogicAI workspace.`;
+
+      document.querySelector("#tenant").textContent =
+        d.tenant?.name || "—";
+
+      document.querySelector("#plan").textContent =
+        d.subscription?.plan_name || "—";
+
+      document.querySelector("#quota").textContent =
+        Number(
+          d.subscription?.included_requests || 0
+        ).toLocaleString();
+
+      document.querySelector("#credits").textContent =
+        Number(
+          d.credits?.total_available ??
+          d.credits?.subscription_balance ??
+          0
+        ).toLocaleString();
+    });
+  </script>
+</AppLayout>
