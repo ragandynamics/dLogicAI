@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dlogicai-api-uat",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": {
+    "APP_ENV": "uat"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dlogicai-uat",
+      "database_id": "__UAT_D1_DATABASE_ID__"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "DATA_BUCKET",
+      "bucket_name": "dlogicai-uat-data"
+    },
+    {
+      "binding": "BACKUP_BUCKET",
+      "bucket_name": "dlogicai-uat-backups"
+    }
+  ]
+}

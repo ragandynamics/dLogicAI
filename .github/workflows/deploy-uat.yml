@@ -1,0 +1,132 @@
+name: dLogicAI Deploy UAT
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: uat-deploy
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 22
+  PNPM_VERSION: 10.12.4
+
+jobs:
+  deploy-api:
+    name: Deploy API to Cloudflare Workers (UAT)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: uat
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API
+        run: pnpm --dir apps/api build
+
+      - name: Apply UAT D1 migrations
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler d1 migrations apply dlogicai-uat --remote --env uat
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          command: deploy --env uat --var STRIPE_SUCCESS_URL:${{ vars.STRIPE_SUCCESS_URL }} --var STRIPE_CANCEL_URL:${{ vars.STRIPE_CANCEL_URL }}
+
+      - name: Sync UAT Worker secrets
+        working-directory: apps/api
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          MASTER_KEY: ${{ secrets.MASTER_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          umask 077
+          python - <<'PY'
+          import json, os
+          keys = [
+            'SESSION_SECRET', 'MASTER_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY',
+            'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'
+          ]
+          data = {k: os.environ[k] for k in keys if os.environ.get(k)}
+          required = ['SESSION_SECRET', 'MASTER_KEY']
+          missing = [k for k in required if not data.get(k)]
+          if missing:
+              raise SystemExit('Missing required UAT secrets: ' + ', '.join(missing))
+          with open('.uat-secrets.json', 'w') as f:
+              json.dump(data, f)
+          PY
+          pnpm exec wrangler secret bulk .uat-secrets.json --env uat
+          rm -f .uat-secrets.json
+
+  deploy-web:
+    name: Deploy web to Cloudflare Pages (UAT)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: uat
+    needs: deploy-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        env:
+          PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+        run: pnpm --dir apps/web build
+
+      - name: Deploy Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/web/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=develop

@@ -4,14 +4,23 @@
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev:api": "pnpm --dir apps/api dev",
+<<<<<<< HEAD
+=======
+    "dev:web": "pnpm --dir apps/web dev",
+>>>>>>> eb08692 (Initial commit)
     "build": "pnpm --dir apps/web build",
     "deploy:api": "pnpm --dir apps/api deploy",
     "deploy:web": "pnpm --dir apps/web deploy",
     "db:migrate:local": "pnpm --dir apps/api db:migrate:local",
     "db:migrate:remote": "pnpm --dir apps/api db:migrate:remote",
+<<<<<<< HEAD
     "dev:web": "pnpm --filter @dlogicai/web dev",
     "build:web": "pnpm --filter @dlogicai/web build",
     "check:web": "pnpm --filter @dlogicai/web check"
+=======
+    "check": "pnpm --dir apps/api build && pnpm --dir apps/web check",
+    "build:all": "pnpm --dir apps/api build && pnpm --dir apps/web build"
+>>>>>>> eb08692 (Initial commit)
   },
   "dependencies": {
     "hono": "^4.13.3",

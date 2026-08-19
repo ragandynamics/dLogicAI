@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { z } from "zod";
-import { registerBillingRoutes } from "./billing";
 
 /* -------------------------------------------------------------------------- */
 /* TYPES                                                                      */
@@ -13,8 +12,12 @@ type Env = {
   MASTER_KEY: string;
   OPENAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
+
+  // Stripe Billing
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_SUCCESS_URL?: string;
+  STRIPE_CANCEL_URL?: string;
 };
 
 type AuthContext = {
@@ -191,6 +194,576 @@ function jsonError(
   );
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* STRIPE HELPERS                                                             */
+/* -------------------------------------------------------------------------- */
+
+function requireStripe(env: Env) {
+  if (!env.STRIPE_SECRET_KEY) {
+    throw new Error("Stripe is not configured.");
+  }
+  return env.STRIPE_SECRET_KEY;
+}
+
+function formEncode(values: Record<string, string | number | boolean | null | undefined>) {
+  const body = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined || value === null) continue;
+    body.set(key, String(value));
+  }
+
+  return body;
+}
+
+async function stripeRequest(
+  env: Env,
+  path: string,
+  method: "GET" | "POST" = "GET",
+  params?: Record<string, string | number | boolean | null | undefined>
+) {
+  const secret = requireStripe(env);
+
+  const response = await fetch(`https://api.stripe.com/v1${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      ...(method === "POST"
+        ? { "Content-Type": "application/x-www-form-urlencoded" }
+        : {}),
+    },
+    body:
+      method === "POST" && params
+        ? formEncode(params)
+        : undefined,
+  });
+
+  const text = await response.text();
+
+  let data: any = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
+
+  if (!response.ok) {
+    const message =
+      data?.error?.message ||
+      `Stripe API request failed with status ${response.status}.`;
+
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array) {
+  if (a.length !== b.length) return false;
+
+  let diff = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+
+  return diff === 0;
+}
+
+function hexToBytesStrict(hex: string) {
+  if (!/^[0-9a-f]+$/i.test(hex) || hex.length % 2 !== 0) {
+    throw new Error("Invalid hex.");
+  }
+
+  const out = new Uint8Array(hex.length / 2);
+
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+
+  return out;
+}
+
+async function verifyStripeSignature(
+  payload: string,
+  signatureHeader: string | undefined,
+  webhookSecret: string | undefined
+) {
+  if (!signatureHeader || !webhookSecret) return false;
+
+  const timestampPart = signatureHeader
+    .split(",")
+    .find((part) => part.startsWith("t="));
+
+  if (!timestampPart) return false;
+
+  const timestamp = Number(timestampPart.slice(2));
+
+  if (!Number.isInteger(timestamp)) return false;
+
+  // Stripe recommends a five-minute replay tolerance.
+  if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 300) {
+    return false;
+  }
+
+  const expectedSignatures = signatureHeader
+    .split(",")
+    .filter((part) => part.startsWith("v1="))
+    .map((part) => part.slice(3))
+    .filter((value) => /^[0-9a-f]{64}$/i.test(value));
+
+  if (expectedSignatures.length === 0) return false;
+
+  const signedPayload = `${timestamp}.${payload}`;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(webhookSecret),
+    {
+      name: "HMAC",
+      hash: "SHA-256",
+    },
+    false,
+    ["sign"]
+  );
+
+  const digest = new Uint8Array(
+    await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(signedPayload)
+    )
+  );
+
+  return expectedSignatures.some((candidate) =>
+    constantTimeEqual(
+      digest,
+      hexToBytesStrict(candidate)
+    )
+  );
+}
+
+function stripeUnixMs(value: unknown, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0
+    ? Math.floor(n * 1000)
+    : fallback;
+}
+
+function stripeCustomerId(value: any) {
+  return typeof value === "string"
+    ? value
+    : value?.id || null;
+}
+
+function stripeSubscriptionId(value: any) {
+  return typeof value === "string"
+    ? value
+    : value?.id || null;
+}
+
+async function getPlanByStripePrice(
+  c: any,
+  priceId: string
+) {
+  return c.env.DB.prepare(
+    `
+    SELECT *
+    FROM plans
+    WHERE stripe_price_id = ?
+    LIMIT 1
+    `
+  )
+    .bind(priceId)
+    .first<any>();
+}
+
+async function getPlanForSubscription(
+  c: any,
+  stripeSubscription: any
+) {
+  const priceId =
+    stripeSubscription?.items?.data?.[0]?.price?.id;
+
+  if (!priceId) return null;
+
+  return getPlanByStripePrice(c, priceId);
+}
+
+async function creditSubscriptionPeriod(
+  c: any,
+  tenantId: string,
+  plan: any,
+  referenceId: string
+) {
+  const credits = Math.max(
+    Number(plan?.included_requests || 0),
+    0
+  );
+
+  if (credits <= 0) return;
+
+  const account = await getCreditAccount(
+    c,
+    tenantId
+  );
+
+  if (!account) {
+    await createCreditAccount(
+      c,
+      tenantId,
+      credits
+    );
+    return;
+  }
+
+  const t = now();
+
+  // Subscription credits are a monthly entitlement.
+  // Reset only this balance; purchased/promotional credits remain intact.
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `
+      UPDATE credit_accounts
+      SET
+        subscription_balance = ?,
+        updated_at = ?
+      WHERE tenant_id = ?
+      `
+    ).bind(
+      credits,
+      t,
+      tenantId
+    ),
+
+    c.env.DB.prepare(
+      `
+      INSERT INTO credit_ledger (
+        id,
+        tenant_id,
+        credit_account_id,
+        entry_type,
+        source,
+        amount,
+        balance_after,
+        reference_type,
+        reference_id,
+        description,
+        created_at
+      )
+      VALUES (?, ?, ?, 'credit', 'subscription', ?, ?, 'invoice', ?, ?, ?)
+      `
+    ).bind(
+      id("led"),
+      tenantId,
+      account.id,
+      credits,
+      credits,
+      referenceId,
+      `Stripe subscription period credits: ${plan.name}`,
+      t
+    ),
+  ]);
+}
+
+async function syncStripeSubscription(
+  c: any,
+  stripeSubscription: any
+) {
+  const stripeSubId =
+    stripeSubscriptionId(
+      stripeSubscription
+    );
+
+  if (!stripeSubId) {
+    throw new Error(
+      "Stripe subscription has no id."
+    );
+  }
+
+  const customerId =
+    stripeCustomerId(
+      stripeSubscription.customer
+    );
+
+  const plan =
+    await getPlanForSubscription(
+      c,
+      stripeSubscription
+    );
+
+  const metadata =
+    stripeSubscription.metadata || {};
+
+  let internal =
+    metadata.internal_subscription_id
+      ? await c.env.DB.prepare(
+          `
+          SELECT *
+          FROM subscriptions
+          WHERE id = ?
+          LIMIT 1
+          `
+        )
+          .bind(
+            metadata.internal_subscription_id
+          )
+          .first<any>()
+      : null;
+
+  if (!internal && customerId) {
+    internal =
+      await c.env.DB.prepare(
+        `
+        SELECT *
+        FROM subscriptions
+        WHERE external_customer_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+        `
+      )
+        .bind(customerId)
+        .first<any>();
+  }
+
+  if (!internal) {
+    return {
+      matched: false,
+      plan,
+      subscriptionId: stripeSubId,
+    };
+  }
+
+  const currentPlanId =
+    plan?.id || internal.plan_id;
+
+  const status =
+    typeof stripeSubscription.status === "string"
+      ? stripeSubscription.status
+      : internal.status;
+
+  const periodStart =
+    stripeUnixMs(
+      stripeSubscription.current_period_start,
+      internal.current_period_start || now()
+    );
+
+  const periodEnd =
+    stripeUnixMs(
+      stripeSubscription.current_period_end,
+      internal.current_period_end || now()
+    );
+
+  await c.env.DB.prepare(
+    `
+    UPDATE subscriptions
+    SET
+      plan_id = ?,
+      status = ?,
+      current_period_start = ?,
+      current_period_end = ?,
+      external_customer_id = ?,
+      external_subscription_id = ?,
+      updated_at = ?
+    WHERE id = ?
+    `
+  )
+    .bind(
+      currentPlanId,
+      status,
+      periodStart,
+      periodEnd,
+      customerId,
+      stripeSubId,
+      now(),
+      internal.id
+    )
+    .run();
+
+  return {
+    matched: true,
+    internal,
+    plan,
+    subscriptionId: stripeSubId,
+    status,
+  };
+}
+
+async function handleStripeEvent(
+  c: any,
+  event: any
+) {
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object;
+
+      const tenantId =
+        session.metadata?.tenant_id ||
+        session.client_reference_id;
+
+      const planId =
+        session.metadata?.plan_id;
+
+      const internalSubscriptionId =
+        session.metadata?.internal_subscription_id;
+
+      const customerId =
+        stripeCustomerId(session.customer);
+
+      const stripeSubId =
+        stripeSubscriptionId(
+          session.subscription
+        );
+
+      if (
+        !tenantId ||
+        !planId ||
+        !internalSubscriptionId
+      ) {
+        throw new Error(
+          "Checkout session is missing required dLogicAI metadata."
+        );
+      }
+
+      await c.env.DB.prepare(
+        `
+        UPDATE subscriptions
+        SET
+          plan_id = ?,
+          external_customer_id = ?,
+          external_subscription_id = ?,
+          updated_at = ?
+        WHERE id = ?
+          AND tenant_id = ?
+        `
+      )
+        .bind(
+          planId,
+          customerId,
+          stripeSubId,
+          now(),
+          internalSubscriptionId,
+          tenantId
+        )
+        .run();
+
+      return;
+    }
+
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const subscription =
+        event.data.object;
+
+      const synced =
+        await syncStripeSubscription(
+          c,
+          subscription
+        );
+
+      // A deleted subscription must never retain access.
+      if (
+        event.type ===
+        "customer.subscription.deleted" &&
+        synced.matched
+      ) {
+        await c.env.DB.prepare(
+          `
+          UPDATE subscriptions
+          SET status = 'canceled', updated_at = ?
+          WHERE external_subscription_id = ?
+          `
+        )
+          .bind(
+            now(),
+            stripeSubscriptionId(
+              subscription
+            )
+          )
+          .run();
+      }
+
+      return;
+    }
+
+    case "invoice.paid": {
+      const invoice =
+        event.data.object;
+
+      const stripeSubId =
+        stripeSubscriptionId(
+          invoice.subscription
+        );
+
+      if (!stripeSubId) return;
+
+      // Stripe does not guarantee webhook ordering, so retrieve
+      // the subscription instead of assuming subscription.created arrived first.
+      const stripeSubscription =
+        await stripeRequest(
+          c.env,
+          `/subscriptions/${encodeURIComponent(
+            stripeSubId
+          )}`,
+          "GET"
+        );
+
+      const synced =
+        await syncStripeSubscription(
+          c,
+          stripeSubscription
+        );
+
+      if (
+        synced.matched &&
+        synced.plan
+      ) {
+        await creditSubscriptionPeriod(
+          c,
+          synced.internal.tenant_id,
+          synced.plan,
+          invoice.id
+        );
+      }
+
+      return;
+    }
+
+    case "invoice.payment_failed": {
+      const invoice =
+        event.data.object;
+
+      const stripeSubId =
+        stripeSubscriptionId(
+          invoice.subscription
+        );
+
+      if (!stripeSubId) return;
+
+      await c.env.DB.prepare(
+        `
+        UPDATE subscriptions
+        SET status = 'past_due', updated_at = ?
+        WHERE external_subscription_id = ?
+        `
+      )
+        .bind(
+          now(),
+          stripeSubId
+        )
+        .run();
+
+      return;
+    }
+
+    default:
+      // Ignore unrelated Stripe events.
+      return;
+  }
+}
+
 /**
  * Local development:
  *   http://127.0.0.1:8787 -> do NOT use Secure
@@ -292,6 +865,7 @@ async function hashPassword(password: string) {
   );
 
   const iterations = 150000;
+  
 
   const bits = await crypto.subtle.deriveBits(
     {
@@ -1905,6 +2479,616 @@ app.get(
 );
 
 /* -------------------------------------------------------------------------- */
+/* PLANS                                                                      */
+/* -------------------------------------------------------------------------- */
+
+app.get("/v1/plans", async (c) => {
+  const result = await c.env.DB.prepare(
+    `
+    SELECT
+      id,
+      name,
+      monthly_price_cents,
+      included_requests,
+      included_ai_credit_micros,
+      max_projects,
+      max_api_keys,
+      max_team_members,
+      byok_request_fee_micros,
+      features_json
+    FROM plans
+    ORDER BY monthly_price_cents ASC
+    `
+  ).all();
+
+  return c.json({
+    plans: result.results,
+  });
+});
+
+app.post("/v1/billing/subscription/change", async (c) => {
+  const auth = await requireDashboard(c);
+
+  if (!auth) {
+    return jsonError(
+      c,
+      "UNAUTHORIZED",
+      "Authentication required.",
+      401
+    );
+  }
+
+  const schema = z.object({
+    plan_id: z.string().trim().min(1),
+  });
+
+  const parsed = schema.safeParse(
+    await c.req.json().catch(() => ({}))
+  );
+
+  if (!parsed.success) {
+    return jsonError(
+      c,
+      "INVALID_REQUEST",
+      "plan_id is required.",
+      400
+    );
+  }
+
+  const current =
+    await c.env.DB.prepare(
+      `
+      SELECT
+        s.id,
+        s.tenant_id,
+        s.plan_id,
+        s.status,
+        s.external_customer_id,
+        s.external_subscription_id,
+        p.name,
+        p.monthly_price_cents
+      FROM subscriptions s
+      JOIN plans p ON p.id = s.plan_id
+      WHERE s.tenant_id = ?
+      ORDER BY s.created_at DESC
+      LIMIT 1
+      `
+    )
+      .bind(auth.tenantId)
+      .first<any>();
+
+  if (!current) {
+    return jsonError(
+      c,
+      "SUBSCRIPTION_NOT_FOUND",
+      "No subscription was found.",
+      404
+    );
+  }
+
+  const target =
+    await c.env.DB.prepare(
+      `
+      SELECT
+        id,
+        name,
+        monthly_price_cents,
+        included_requests,
+        included_ai_credit_micros,
+        max_projects,
+        max_api_keys,
+        max_team_members,
+        byok_request_fee_micros,
+        features_json,
+        stripe_price_id
+      FROM plans
+      WHERE id = ?
+      LIMIT 1
+      `
+    )
+      .bind(parsed.data.plan_id)
+      .first<any>();
+
+  if (!target) {
+    return jsonError(
+      c,
+      "PLAN_NOT_FOUND",
+      "The selected plan does not exist.",
+      404
+    );
+  }
+
+  if (current.plan_id === target.id) {
+    return jsonError(
+      c,
+      "CURRENT_PLAN",
+      "You are already subscribed to this plan.",
+      400
+    );
+  }
+
+  const planRank: Record<string, number> = {
+    plan_free: 0,
+    plan_developer: 1,
+    plan_pro: 2,
+    plan_business: 3,
+  };
+
+  const currentRank =
+    planRank[String(current.plan_id)] ?? 0;
+
+  const targetRank =
+    planRank[String(target.id)] ?? 0;
+
+  if (targetRank <= currentRank) {
+    return jsonError(
+      c,
+      "PLAN_DOWNGRADE_NOT_ALLOWED",
+      "Plans can only be upgraded.",
+      400
+    );
+  }
+
+  if (!target.stripe_price_id) {
+    return jsonError(
+      c,
+      "STRIPE_PRICE_NOT_CONFIGURED",
+      "The selected plan is not configured for Stripe billing.",
+      503
+    );
+  }
+
+  try {
+    let customerId =
+      current.external_customer_id ||
+      null;
+
+    if (!customerId) {
+      const user =
+        await c.env.DB.prepare(
+          `
+          SELECT email, name
+          FROM users
+          WHERE id = ?
+          LIMIT 1
+          `
+        )
+          .bind(auth.userId)
+          .first<{
+            email: string;
+            name: string;
+          }>();
+
+      if (!user) {
+        return jsonError(
+          c,
+          "USER_NOT_FOUND",
+          "Account owner not found.",
+          404
+        );
+      }
+
+      const customer =
+        await stripeRequest(
+          c.env,
+          "/customers",
+          "POST",
+          {
+            email: user.email,
+            name: user.name,
+            "metadata[tenant_id]":
+              auth.tenantId,
+          }
+        );
+
+      customerId = customer.id;
+
+      await c.env.DB.prepare(
+        `
+        UPDATE subscriptions
+        SET external_customer_id = ?, updated_at = ?
+        WHERE id = ? AND tenant_id = ?
+        `
+      )
+        .bind(
+          customerId,
+          now(),
+          current.id,
+          auth.tenantId
+        )
+        .run();
+    }
+
+    // Initial paid subscription: use Checkout.
+    if (!current.external_subscription_id) {
+      const successUrl =
+        c.env.STRIPE_SUCCESS_URL;
+
+      const cancelUrl =
+        c.env.STRIPE_CANCEL_URL;
+
+      if (!successUrl || !cancelUrl) {
+        return jsonError(
+          c,
+          "STRIPE_URLS_NOT_CONFIGURED",
+          "STRIPE_SUCCESS_URL and STRIPE_CANCEL_URL must be configured.",
+          503
+        );
+      }
+
+      const session =
+        await stripeRequest(
+          c.env,
+          "/checkout/sessions",
+          "POST",
+          {
+            mode: "subscription",
+            customer: customerId,
+            "client_reference_id":
+              auth.tenantId,
+            "line_items[0][price]":
+              target.stripe_price_id,
+            "line_items[0][quantity]": 1,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            "metadata[tenant_id]":
+              auth.tenantId,
+            "metadata[plan_id]":
+              target.id,
+            "metadata[internal_subscription_id]":
+              current.id,
+            "subscription_data[metadata][tenant_id]":
+              auth.tenantId,
+            "subscription_data[metadata][plan_id]":
+              target.id,
+            "subscription_data[metadata][internal_subscription_id]":
+              current.id,
+          }
+        );
+
+      return c.json({
+        success: true,
+        mode: "checkout",
+        checkout_url: session.url,
+        session_id: session.id,
+      });
+    }
+
+    // Existing paid subscription: change the Stripe price.
+    // Stripe webhooks remain the source of truth for the local plan/status.
+    const updated =
+      await stripeRequest(
+        c.env,
+        `/subscriptions/${encodeURIComponent(
+          current.external_subscription_id
+        )}`,
+        "POST",
+        {
+          "items[0][price]":
+            target.stripe_price_id,
+          "proration_behavior":
+            "always_invoice",
+          "payment_behavior":
+            "pending_if_incomplete",
+          "metadata[tenant_id]":
+            auth.tenantId,
+          "metadata[plan_id]":
+            target.id,
+          "metadata[internal_subscription_id]":
+            current.id,
+        }
+      );
+
+    await syncStripeSubscription(
+      c,
+      updated
+    );
+
+    return c.json({
+      success: true,
+      mode: "subscription_update",
+      subscription: {
+        id: current.id,
+        plan_id: target.id,
+        plan_name: target.name,
+        status:
+          updated.status ||
+          current.status,
+      },
+    });
+  } catch (error: any) {
+    console.error(
+      "DLOGICAI_STRIPE_CHECKOUT_ERROR",
+      {
+        tenantId: auth.tenantId,
+        targetPlanId: target.id,
+        error:
+          error?.message ||
+          String(error),
+      }
+    );
+
+    return jsonError(
+      c,
+      "STRIPE_ERROR",
+      "Unable to start or update Stripe billing.",
+      502
+    );
+  }
+});
+
+/* -------------------------------------------------------------------------- */
+/* STRIPE WEBHOOK                                                             */
+/* -------------------------------------------------------------------------- */
+
+app.post("/v1/billing/stripe/webhook", async (c) => {
+  const signature =
+    c.req.header("Stripe-Signature");
+
+  const payload =
+    await c.req.text();
+
+  const valid =
+    await verifyStripeSignature(
+      payload,
+      signature,
+      c.env.STRIPE_WEBHOOK_SECRET
+    );
+
+  if (!valid) {
+    return jsonError(
+      c,
+      "INVALID_STRIPE_SIGNATURE",
+      "Invalid Stripe webhook signature.",
+      400
+    );
+  }
+
+  let event: any;
+
+  try {
+    event = JSON.parse(payload);
+  } catch {
+    return jsonError(
+      c,
+      "INVALID_STRIPE_EVENT",
+      "Invalid Stripe event payload.",
+      400
+    );
+  }
+
+  if (
+    !event?.id ||
+    typeof event.id !== "string" ||
+    typeof event.type !== "string"
+  ) {
+    return jsonError(
+      c,
+      "INVALID_STRIPE_EVENT",
+      "Invalid Stripe event.",
+      400
+    );
+  }
+
+  // Idempotency: Stripe may retry delivery, and event ordering is not guaranteed.
+  const existing =
+    await c.env.DB.prepare(
+      `
+      SELECT status
+      FROM stripe_events
+      WHERE id = ?
+      LIMIT 1
+      `
+    )
+      .bind(event.id)
+      .first<{ status: string }>();
+
+  if (existing?.status === "processed") {
+    return c.json({ received: true });
+  }
+
+  if (!existing) {
+    await c.env.DB.prepare(
+      `
+      INSERT OR IGNORE INTO stripe_events (
+        id,
+        event_type,
+        status,
+        created_at
+      )
+      VALUES (?, ?, 'received', ?)
+      `
+    )
+      .bind(
+        event.id,
+        event.type,
+        now()
+      )
+      .run();
+  }
+
+  try {
+    await handleStripeEvent(
+      c,
+      event
+    );
+
+    await c.env.DB.prepare(
+      `
+      UPDATE stripe_events
+      SET
+        status = 'processed',
+        processed_at = ?,
+        error_message = NULL
+      WHERE id = ?
+      `
+    )
+      .bind(
+        now(),
+        event.id
+      )
+      .run();
+
+    return c.json({
+      received: true,
+    });
+  } catch (error: any) {
+    const message =
+      error?.message ||
+      String(error);
+
+    await c.env.DB.prepare(
+      `
+      UPDATE stripe_events
+      SET
+        status = 'failed',
+        error_message = ?
+      WHERE id = ?
+      `
+    )
+      .bind(
+        message.slice(0, 1000),
+        event.id
+      )
+      .run()
+      .catch(() => undefined);
+
+    console.error(
+      "DLOGICAI_STRIPE_WEBHOOK_ERROR",
+      {
+        eventId: event.id,
+        eventType: event.type,
+        error: message,
+      }
+    );
+
+    // Return 500 so Stripe retries the event.
+    return jsonError(
+      c,
+      "STRIPE_WEBHOOK_PROCESSING_FAILED",
+      "Stripe event processing failed.",
+      500
+    );
+  }
+});
+/* -------------------------------------------------------------------------- */
+/* CURRENT SUBSCRIPTION                                                       */
+/* -------------------------------------------------------------------------- */
+
+app.get(
+  "/v1/billing/subscription",
+  async (c) => {
+    const auth =
+      await requireDashboard(c);
+
+    if (!auth) {
+      return jsonError(
+        c,
+        "UNAUTHORIZED",
+        "Authentication required.",
+        401
+      );
+    }
+
+    const subscription =
+      await c.env.DB.prepare(
+        `
+        SELECT
+          s.id,
+          s.tenant_id,
+          s.plan_id,
+          s.status,
+          s.current_period_start,
+          s.current_period_end,
+          s.external_customer_id,
+          s.external_subscription_id,
+
+          p.name AS plan_name,
+          p.monthly_price_cents,
+          p.included_requests,
+          p.included_ai_credit_micros,
+          p.max_projects,
+          p.max_api_keys,
+          p.max_team_members,
+          p.byok_request_fee_micros,
+          p.features_json
+
+        FROM subscriptions s
+
+        JOIN plans p
+          ON p.id = s.plan_id
+
+        WHERE s.tenant_id = ?
+
+        ORDER BY s.created_at DESC
+
+        LIMIT 1
+        `
+      )
+        .bind(auth.tenantId)
+        .first();
+
+    if (!subscription) {
+      return jsonError(
+        c,
+        "SUBSCRIPTION_NOT_FOUND",
+        "No active subscription found.",
+        404
+      );
+    }
+
+    const creditAccount =
+      await getCreditAccount(
+        c,
+        auth.tenantId
+      );
+
+    const availableCredits =
+      creditAccount
+        ? totalAvailableCredits(
+            creditAccount
+          )
+        : 0;
+
+    return c.json({
+      subscription,
+
+      credits: {
+        subscription:
+          creditAccount?.subscription_balance || 0,
+
+        purchased:
+          creditAccount?.purchased_balance || 0,
+
+        promotional:
+          creditAccount?.promotional_balance || 0,
+
+        available:
+          availableCredits,
+
+        total_consumed:
+          creditAccount?.total_consumed || 0,
+
+        auto_topup: {
+          enabled:
+            Boolean(
+              creditAccount?.auto_topup_enabled
+            ),
+
+          threshold:
+            creditAccount?.auto_topup_threshold || 0,
+
+          credits:
+            creditAccount?.auto_topup_credits || 0,
+
+          limit:
+            creditAccount?.auto_topup_limit || 0,
+        },
+      },
+    });
+  }
+);
+/* -------------------------------------------------------------------------- */
 /* AI CREDITS - BALANCE                                                       */
 /* -------------------------------------------------------------------------- */
 
@@ -2113,6 +3297,198 @@ app.post(
 /* -------------------------------------------------------------------------- */
 /* API KEYS - CREATE                                                          */
 /* -------------------------------------------------------------------------- */
+
+
+/* -------------------------------------------------------------------------- */
+/* CHAT SERVICES                                                              */
+/* -------------------------------------------------------------------------- */
+
+app.get("/v1/projects/:projectId/chat-services", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+
+  const projectId = c.req.param("projectId");
+  const project = await c.env.DB.prepare(
+    "SELECT id, name, environment, status FROM projects WHERE id=? AND tenant_id=?"
+  ).bind(projectId, auth.tenantId).first();
+
+  if (!project) return jsonError(c, "NOT_FOUND", "Project not found.", 404);
+
+  const rows = await c.env.DB.prepare(`
+    SELECT id, project_id, name, description, environment, status,
+           default_language, ai_provider, model,
+           enable_intelligence, enable_emotion_analysis,
+           enable_upsell_analysis, created_at, updated_at
+    FROM chat_services
+    WHERE tenant_id=? AND project_id=? AND status != 'deleted'
+    ORDER BY created_at DESC
+  `).bind(auth.tenantId, projectId).all();
+
+  return c.json({ chat_services: rows.results });
+});
+
+app.post("/v1/projects/:projectId/chat-services", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+
+  const projectId = c.req.param("projectId");
+  const project = await c.env.DB.prepare(
+    "SELECT id, environment, status FROM projects WHERE id=? AND tenant_id=?"
+  ).bind(projectId, auth.tenantId).first<{ id: string; environment: string; status: string }>();
+
+  if (!project) return jsonError(c, "NOT_FOUND", "Project not found.", 404);
+  if (project.status !== "active") return jsonError(c, "PROJECT_INACTIVE", "The selected project is not active.", 409);
+
+  const schema = z.object({
+    name: z.string().trim().min(1).max(100),
+    description: z.string().trim().max(500).optional(),
+    environment: z.enum(["development", "staging", "production"]).default("development"),
+    default_language: z.string().trim().min(2).max(20).default("auto"),
+    ai_provider: z.enum(["auto", "openai", "google"]).default("auto"),
+    model: z.string().trim().min(1).max(100).default("auto"),
+    enable_intelligence: z.boolean().default(true),
+    enable_emotion_analysis: z.boolean().default(true),
+    enable_upsell_analysis: z.boolean().default(true),
+  });
+
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return jsonError(c, "INVALID_REQUEST", "Invalid Chat Service configuration.", 400);
+
+  const duplicate = await c.env.DB.prepare(`
+    SELECT id FROM chat_services
+    WHERE tenant_id=? AND project_id=? AND lower(name)=lower(?) AND status != 'deleted'
+    LIMIT 1
+  `).bind(auth.tenantId, projectId, parsed.data.name).first();
+
+  if (duplicate) return jsonError(c, "CHAT_SERVICE_EXISTS", "A Chat Service with this name already exists in this project.", 409);
+
+  const serviceId = id("chat");
+  const t = now();
+
+  await c.env.DB.prepare(`
+    INSERT INTO chat_services (
+      id, tenant_id, project_id, name, description, environment, status,
+      default_language, ai_provider, model, enable_intelligence,
+      enable_emotion_analysis, enable_upsell_analysis, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    serviceId,
+    auth.tenantId,
+    projectId,
+    parsed.data.name,
+    parsed.data.description ?? null,
+    parsed.data.environment,
+    parsed.data.default_language,
+    parsed.data.ai_provider,
+    parsed.data.model,
+    parsed.data.enable_intelligence ? 1 : 0,
+    parsed.data.enable_emotion_analysis ? 1 : 0,
+    parsed.data.enable_upsell_analysis ? 1 : 0,
+    t,
+    t,
+  ).run();
+
+  const service = await c.env.DB.prepare(`
+    SELECT id, project_id, name, description, environment, status,
+           default_language, ai_provider, model,
+           enable_intelligence, enable_emotion_analysis,
+           enable_upsell_analysis, created_at, updated_at
+    FROM chat_services WHERE id=? AND tenant_id=? AND project_id=?
+  `).bind(serviceId, auth.tenantId, projectId).first();
+
+  return c.json({ chat_service: service }, 201);
+});
+
+app.get("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+
+  const service = await c.env.DB.prepare(`
+    SELECT id, project_id, name, description, environment, status,
+           default_language, ai_provider, model,
+           enable_intelligence, enable_emotion_analysis,
+           enable_upsell_analysis, created_at, updated_at
+    FROM chat_services
+    WHERE id=? AND project_id=? AND tenant_id=? AND status != 'deleted'
+  `).bind(c.req.param("serviceId"), c.req.param("projectId"), auth.tenantId).first();
+
+  if (!service) return jsonError(c, "NOT_FOUND", "Chat Service not found.", 404);
+  return c.json({ chat_service: service });
+});
+
+app.patch("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+
+  const projectId = c.req.param("projectId");
+  const serviceId = c.req.param("serviceId");
+  const existing = await c.env.DB.prepare(
+    "SELECT * FROM chat_services WHERE id=? AND project_id=? AND tenant_id=? AND status != 'deleted'"
+  ).bind(serviceId, projectId, auth.tenantId).first<any>();
+
+  if (!existing) return jsonError(c, "NOT_FOUND", "Chat Service not found.", 404);
+
+  const schema = z.object({
+    name: z.string().trim().min(1).max(100).optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    environment: z.enum(["development", "staging", "production"]).optional(),
+    status: z.enum(["active", "paused"]).optional(),
+    default_language: z.string().trim().min(2).max(20).optional(),
+    ai_provider: z.enum(["auto", "openai", "google"]).optional(),
+    model: z.string().trim().min(1).max(100).optional(),
+    enable_intelligence: z.boolean().optional(),
+    enable_emotion_analysis: z.boolean().optional(),
+    enable_upsell_analysis: z.boolean().optional(),
+  });
+
+  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return jsonError(c, "INVALID_REQUEST", "Invalid Chat Service update.", 400);
+
+  const d = parsed.data;
+  const next = {
+    name: d.name ?? existing.name,
+    description: d.description === undefined ? existing.description : d.description,
+    environment: d.environment ?? existing.environment,
+    status: d.status ?? existing.status,
+    default_language: d.default_language ?? existing.default_language,
+    ai_provider: d.ai_provider ?? existing.ai_provider,
+    model: d.model ?? existing.model,
+    enable_intelligence: d.enable_intelligence === undefined ? existing.enable_intelligence : (d.enable_intelligence ? 1 : 0),
+    enable_emotion_analysis: d.enable_emotion_analysis === undefined ? existing.enable_emotion_analysis : (d.enable_emotion_analysis ? 1 : 0),
+    enable_upsell_analysis: d.enable_upsell_analysis === undefined ? existing.enable_upsell_analysis : (d.enable_upsell_analysis ? 1 : 0),
+  };
+
+  await c.env.DB.prepare(`
+    UPDATE chat_services SET
+      name=?, description=?, environment=?, status=?, default_language=?,
+      ai_provider=?, model=?, enable_intelligence=?, enable_emotion_analysis=?,
+      enable_upsell_analysis=?, updated_at=?
+    WHERE id=? AND tenant_id=? AND project_id=?
+  `).bind(
+    next.name, next.description, next.environment, next.status,
+    next.default_language, next.ai_provider, next.model,
+    next.enable_intelligence, next.enable_emotion_analysis,
+    next.enable_upsell_analysis, now(), serviceId, auth.tenantId, projectId,
+  ).run();
+
+  const service = await c.env.DB.prepare("SELECT * FROM chat_services WHERE id=? AND tenant_id=? AND project_id=?")
+    .bind(serviceId, auth.tenantId, projectId).first();
+
+  return c.json({ chat_service: service });
+});
+
+app.delete("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+
+  const result = await c.env.DB.prepare(`
+    UPDATE chat_services SET status='deleted', updated_at=?
+    WHERE id=? AND project_id=? AND tenant_id=? AND status != 'deleted'
+  `).bind(now(), c.req.param("serviceId"), c.req.param("projectId"), auth.tenantId).run();
+
+  if (Number(result.meta?.changes || 0) !== 1) return jsonError(c, "NOT_FOUND", "Chat Service not found.", 404);
+  return c.json({ ok: true });
+});
 
 app.post(
   "/v1/projects/:projectId/api-keys",
@@ -3345,12 +4721,5 @@ app.get(
 /* -------------------------------------------------------------------------- */
 /* EXPORT                                                                     */
 /* -------------------------------------------------------------------------- */
-
-registerBillingRoutes(app, {
-  requireDashboard,
-  jsonError,
-  id,
-  now,
-});
 
 export default app;
