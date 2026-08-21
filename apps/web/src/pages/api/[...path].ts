@@ -3,6 +3,10 @@ import type { APIRoute } from "astro";
 const API_BASE_URL =
   import.meta.env.PUBLIC_API_BASE_URL || "http://127.0.0.1:8787";
 
+  //Debug code
+  console.log("PUBLIC_API_BASE_URL:", import.meta.env.PUBLIC_API_BASE_URL);
+console.log("API_BASE_URL:", API_BASE_URL);
+
 export const ALL: APIRoute = async ({ request, params }) => {
   const path = params.path || "";
 

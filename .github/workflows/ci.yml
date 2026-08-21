@@ -1,23 +1,33 @@
 name: dLogicAI CI
 
 on:
-  pull_request:
-    branches: [develop, main]
   push:
-    branches: [develop, main]
+    branches:
+      - "feature/**"
+      - uat
+      - main
+
+  pull_request:
+    branches:
+      - uat
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: 22
+  PNPM_VERSION: 10.12.4
+
 jobs:
-  validate:
-    name: Validate API and web
+  build:
+    name: Build and Validate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -26,26 +36,26 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.12.4
+          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck API
-        run: pnpm --dir apps/api build
+      - name: Build API
+        run: pnpm --filter @dLogicAI/api build
 
-      - name: Check Astro web
-        run: pnpm --dir apps/web check
+      - name: Check frontend
+        run: pnpm --filter @dlogicai/web check
 
-      - name: Build web
+      - name: Build frontend
         env:
-          PUBLIC_API_BASE_URL: https://ci.invalid.example
-        run: pnpm --dir apps/web build
+          PUBLIC_API_BASE_URL: https://ci.invalid
+        run: pnpm --filter @dlogicai/web build

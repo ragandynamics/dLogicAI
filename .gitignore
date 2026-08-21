@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-node_modules
-dist
-.astro
-.wrangler
-.dev.vars
-.env
-=======
 node_modules/
 dist/
 .astro/
@@ -15,5 +7,4 @@ dist/
 .env*
 !.env.example
 !.env.local.example
->>>>>>> eb08692 (Initial commit)
 .DS_Store

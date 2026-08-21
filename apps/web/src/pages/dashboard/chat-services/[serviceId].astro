@@ -1,5 +1,6 @@
 ---
 import AppLayout from "../../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../../types/env";
 const { serviceId } = Astro.params;
 ---
 
@@ -36,11 +37,11 @@ const { serviceId } = Astro.params;
     </div>
   </div>
 
-  <script is:inline define:vars={{ serviceId }}>
+  <script is:inline define:vars={{ serviceId, apiBaseUrl: API_BASE_URL }}>
     async function loadService() {
       const error = document.querySelector("#error");
       try {
-        const response = await fetch(`/api/projects/${encodeURIComponent(new URLSearchParams(window.location.search).get("projectId") || "")}/chat-services/${encodeURIComponent(serviceId)}`, { credentials: "include" });
+        const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(new URLSearchParams(window.location.search).get("projectId") || "")}/chat-services/${encodeURIComponent(serviceId)}`, { credentials: "include" });
         if (!response.ok) {
           throw new Error("Unable to load this Chat Service. Open it from the Chat Services page so its project context is available.");
         }

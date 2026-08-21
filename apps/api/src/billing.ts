@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 export type BillingRouteDeps = {
   requireDashboard: (c: any) => Promise<{ userId: string; tenantId: string } | null>;
@@ -71,7 +71,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     const parsed = estimateSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return deps.jsonError(c, "INVALID_REQUEST", "Invalid estimator request.", 400);
     const { plan_id, forecast, addons, connectors, months } = parsed.data;
-    const plan = await c.env.DB.prepare(`SELECT * FROM plans WHERE id=? LIMIT 1`).bind(plan_id).first<any>();
+    const plan = await c.env.DB.prepare(`SELECT * FROM plans WHERE id=? LIMIT 1`).bind(plan_id).first();
     if (!plan) return deps.jsonError(c, "PLAN_NOT_FOUND", "The selected plan does not exist.", 404);
 
     const base = Number(plan.monthly_price_cents || 0) * 10000;
@@ -79,17 +79,17 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
 
     for (const [itemId, qty] of Object.entries(addons)) {
       if (qty <= 0) continue;
-      const item = await c.env.DB.prepare(`SELECT * FROM billing_catalog_items WHERE id=? AND item_type='addon' AND active=1`).bind(itemId).first<any>();
+      const item = await c.env.DB.prepare(`SELECT * FROM billing_catalog_items WHERE id=? AND item_type='addon' AND active=1`).bind(itemId).first();
       if (!item) continue;
       items.push({ item_type: "addon", meter_key: item.meter_key, description: item.name, quantity: qty, unit_price_micros: Number(item.unit_price_micros), amount_micros: Math.round(qty * Number(item.unit_price_micros)) });
     }
 
     const planVersion = await c.env.DB.prepare(`
       SELECT id FROM billing_plan_versions WHERE plan_id=? AND retired_at IS NULL ORDER BY version DESC LIMIT 1
-    `).bind(plan_id).first<any>();
+    `).bind(plan_id).first();
 
     if (planVersion) {
-      const entitlements = await c.env.DB.prepare(`SELECT * FROM billing_plan_entitlements WHERE plan_version_id=?`).bind(planVersion.id).all<any>();
+      const entitlements = await c.env.DB.prepare(`SELECT * FROM billing_plan_entitlements WHERE plan_version_id=?`).bind(planVersion.id).all();
       for (const e of entitlements.results || []) {
         const actual = Number(forecast[e.meter_key] || 0);
         const included = Number(e.included_units || 0);
@@ -100,7 +100,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
       }
       const connectorEntitlements = await c.env.DB.prepare(`
         SELECT e.*, c.key, c.name FROM billing_connector_entitlements e JOIN connector_catalog c ON c.id=e.connector_id WHERE e.plan_version_id=?
-      `).bind(planVersion.id).all<any>();
+      `).bind(planVersion.id).all();
       for (const e of connectorEntitlements.results || []) {
         const actual = Number(connectors[e.key] || 0);
         const excess = Math.max(0, actual - Number(e.included_api_calls || 0));
@@ -123,15 +123,15 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     const idem = String(c.req.header("Idempotency-Key") || body.idempotency_key || "").trim();
     if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 1_000_000_000) return deps.jsonError(c, "INVALID_REQUEST", "quantity must be a positive integer.", 400);
     if (!idem || idem.length > 200) return deps.jsonError(c, "IDEMPOTENCY_REQUIRED", "Idempotency-Key is required.", 400);
-    const connector = await c.env.DB.prepare(`SELECT * FROM connector_catalog WHERE id=? AND active=1`).bind(connectorId).first<any>();
+    const connector = await c.env.DB.prepare(`SELECT * FROM connector_catalog WHERE id=? AND active=1`).bind(connectorId).first();
     if (!connector) return deps.jsonError(c, "CONNECTOR_NOT_FOUND", "Connector not found.", 404);
     const { start, end } = period(deps.now());
     const plan = await c.env.DB.prepare(`
       SELECT s.plan_id FROM subscriptions s WHERE s.tenant_id=? ORDER BY s.created_at DESC LIMIT 1
-    `).bind(auth.tenantId).first<any>();
-    const pv = plan ? await c.env.DB.prepare(`SELECT id FROM billing_plan_versions WHERE plan_id=? AND retired_at IS NULL ORDER BY version DESC LIMIT 1`).bind(plan.plan_id).first<any>() : null;
-    const entitlement = pv ? await c.env.DB.prepare(`SELECT * FROM billing_connector_entitlements WHERE plan_version_id=? AND connector_id=?`).bind(pv.id, connectorId).first<any>() : null;
-    const already = await c.env.DB.prepare(`SELECT COALESCE(SUM(quantity),0) AS used FROM billing_usage_events WHERE tenant_id=? AND connector_id=? AND period_start=? AND status='recorded'`).bind(auth.tenantId, connectorId, start).first<any>();
+    `).bind(auth.tenantId).first();
+    const pv = plan ? await c.env.DB.prepare(`SELECT id FROM billing_plan_versions WHERE plan_id=? AND retired_at IS NULL ORDER BY version DESC LIMIT 1`).bind(plan.plan_id).first() : null;
+    const entitlement = pv ? await c.env.DB.prepare(`SELECT * FROM billing_connector_entitlements WHERE plan_version_id=? AND connector_id=?`).bind(pv.id, connectorId).first() : null;
+    const already = await c.env.DB.prepare(`SELECT COALESCE(SUM(quantity),0) AS used FROM billing_usage_events WHERE tenant_id=? AND connector_id=? AND period_start=? AND status='recorded'`).bind(auth.tenantId, connectorId, start).first();
     const usedBefore = Number(already?.used || 0);
     const included = Number(entitlement?.included_api_calls || 0);
     const overage = Math.max(0, usedBefore + quantity - included) - Math.max(0, usedBefore - included);
@@ -153,9 +153,9 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     const body = await c.req.json().catch(() => ({}));
     const planId = String(body.plan_id || "").trim();
     if (!planId) return deps.jsonError(c, "INVALID_REQUEST", "plan_id is required.", 400);
-    const pv = await c.env.DB.prepare(`SELECT * FROM billing_plan_versions WHERE plan_id=? AND retired_at IS NULL ORDER BY version DESC LIMIT 1`).bind(planId).first<any>();
+    const pv = await c.env.DB.prepare(`SELECT * FROM billing_plan_versions WHERE plan_id=? AND retired_at IS NULL ORDER BY version DESC LIMIT 1`).bind(planId).first();
     if (!pv?.stripe_price_id) return deps.jsonError(c, "STRIPE_PRICE_NOT_CONFIGURED", "No Stripe price is configured for this plan.", 409);
-    const tenant = await c.env.DB.prepare(`SELECT id,name,billing_email,external_customer_id FROM tenants WHERE id=?`).bind(auth.tenantId).first<any>();
+    const tenant = await c.env.DB.prepare(`SELECT id,name,billing_email,external_customer_id FROM tenants WHERE id=?`).bind(auth.tenantId).first();
     let customerId = tenant?.external_customer_id;
     if (!customerId) {
       const customerRes = await stripeFetch(c.env, "customers", { method: "POST", body: formEncode({ name: String(tenant?.name || auth.tenantId), email: String(tenant?.billing_email || "") }) });
@@ -179,7 +179,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     const body = await c.req.json().catch(() => ({}));
     const returnUrl = String(body.return_url || "").trim();
     if (!/^https?:\/\//i.test(returnUrl)) return deps.jsonError(c, "INVALID_URL", "return_url must be an absolute URL.", 400);
-    const tenant = await c.env.DB.prepare(`SELECT external_customer_id FROM tenants WHERE id=?`).bind(auth.tenantId).first<any>();
+    const tenant = await c.env.DB.prepare(`SELECT external_customer_id FROM tenants WHERE id=?`).bind(auth.tenantId).first();
     if (!tenant?.external_customer_id) return deps.jsonError(c, "STRIPE_CUSTOMER_NOT_FOUND", "Stripe customer is not configured.", 409);
     const res = await stripeFetch(c.env, "billing_portal/sessions", { method: "POST", body: formEncode({ customer: tenant.external_customer_id, return_url: returnUrl }) });
     if (!res.ok) return deps.jsonError(c, "STRIPE_ERROR", await res.text(), 502);
@@ -221,3 +221,4 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     return c.json({ received: true });
   });
 }
+

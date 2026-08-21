@@ -1,4 +1,5 @@
 ---
+import { API_BASE_URL } from "../../types/env";
 import AppLayout from "../../layouts/AppLayout.astro";
 ---
 
@@ -35,7 +36,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
   <p id="error" class="mt-5 min-h-5 text-sm text-red-600"></p>
 
-  <script is:inline>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
     const cards = document.querySelector("#cards");
     const ledger = document.querySelector("#ledger");
     const error = document.querySelector("#error");
@@ -45,12 +46,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
     async function load() {
       try {
         const [creditData, ledgerData] = await Promise.all([
-          fetch("/api/billing/credits", { credentials: "include" }).then(async r => {
+          fetch(`${apiBaseUrl}/v1/billing/credits`, { credentials: "include" }).then(async r => {
             const d = await r.json();
             if (!r.ok) throw new Error(d?.error?.message || "Unable to load credits.");
             return d;
           }),
-          fetch("/api/billing/credits/ledger?limit=100", { credentials: "include" }).then(async r => {
+          fetch(`${apiBaseUrl}/v1/billing/credits/ledger?limit=100`, { credentials: "include" }).then(async r => {
             const d = await r.json();
             if (!r.ok) throw new Error(d?.error?.message || "Unable to load ledger.");
             return d;

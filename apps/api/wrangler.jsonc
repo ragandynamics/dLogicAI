@@ -1,94 +1,82 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-
-  "name": "dlogicai-api",
-  "main": "src/index.ts",
-
-  "compatibility_date": "2026-08-18",
-  "compatibility_flags": ["nodejs_compat"],
-
-  "observability": {
-    "enabled": true
-  },
-
-  // Local development defaults.
-  // `wrangler dev` uses local D1/R2 storage by default.
-  "vars": {
-    "APP_ENV": "local"
-  },
-
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "dlogicai-local",
-      "database_id": "local"
-    }
-  ],
-
-  "r2_buckets": [
-    {
-      "binding": "DATA_BUCKET",
-      "bucket_name": "dlogicai-local-data"
-    },
-    {
-      "binding": "BACKUP_BUCKET",
-      "bucket_name": "dlogicai-local-backups"
-    }
-  ],
-
-  "env": {
-    "uat": {
-      "name": "dlogicai-api-uat",
-
-      "vars": {
-        "APP_ENV": "uat"
-      },
-
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "dlogicai-uat",
-          "database_id": "<ACTUAL_UAT_D1_DATABASE_ID>"
-        }
-      ],
-
-      "r2_buckets": [
-        {
-          "binding": "DATA_BUCKET",
-          "bucket_name": "dlogicai-uat-data"
-        },
-        {
-          "binding": "BACKUP_BUCKET",
-          "bucket_name": "dlogicai-uat-backups"
-        }
-      ]
-    },
-
-    "production": {
-      "name": "dlogicai-api",
-
-      "vars": {
-        "APP_ENV": "production"
-      },
-
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "dlogicai-prod",
-          "database_id": "<ACTUAL_PRODUCTION_D1_DATABASE_ID>"
-        }
-      ],
-
-      "r2_buckets": [
-        {
-          "binding": "DATA_BUCKET",
-          "bucket_name": "dlogicai-prod-data"
-        },
-        {
-          "binding": "BACKUP_BUCKET",
-          "bucket_name": "dlogicai-prod-backups"
-        }
-      ]
-    }
-  }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "dlogicai-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-18",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	// Local development defaults.
+	// `wrangler dev` uses local D1/R2 storage by default.
+	"vars": {
+		"APP_ENV": "local"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "dialogicai-db",
+			"database_id": "dc3069c8-322a-41ed-8677-881f760c3f97"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "DATA_BUCKET",
+			"bucket_name": "dlogicai-prod-data"
+		},
+		{
+			"binding": "BACKUP_BUCKET",
+			"bucket_name": "dlogicai-prod-backups"
+		}
+	],
+	"env": {
+		"uat": {
+			"name": "dlogicai-api-uat",
+			"vars": {
+				"APP_ENV": "uat"
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "dlogicai-uat",
+					"database_id": "deff70e3-7108-4c5e-86e9-a20df3cc6b36"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "DATA_BUCKET",
+					"bucket_name": "dlogicai-uat-data"
+				},
+				{
+					"binding": "BACKUP_BUCKET",
+					"bucket_name": "dlogicai-uat-backups"
+				}
+			]
+		},
+		"production": {
+			"name": "dlogicai-api",
+			"vars": {
+				"APP_ENV": "production"
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "dlogicai-prod",
+					"database_id": "43d793f1-edad-4683-b5b0-308239fad5a1"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "DATA_BUCKET",
+					"bucket_name": "dlogicai-prod-data"
+				},
+				{
+					"binding": "BACKUP_BUCKET",
+					"bucket_name": "dlogicai-prod-backups"
+				}
+			]
+		}
+	}
 }
