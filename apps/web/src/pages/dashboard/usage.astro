@@ -1,5 +1,6 @@
 ---
 import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
 ---
 
 <AppLayout title="Usage & Intelligence" appShell={true}>
@@ -11,4 +12,28 @@ import AppLayout from "../../layouts/AppLayout.astro";
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="text-sm text-slate-500">Customer charges</div><div id="charges" class="mt-2 text-3xl font-bold text-slate-950">—</div></div>
   </div>
 </AppLayout>
-<script is:inline>fetch("/api/usage").then(async r => { if (!r.ok) { location.href = "/login"; return; } const d = await r.json(), s = d.summary || {}; document.querySelector("#requests")!.textContent = s.requests ?? 0; document.querySelector("#input")!.textContent = s.input_tokens ?? 0; document.querySelector("#output")!.textContent = s.output_tokens ?? 0; document.querySelector("#charges")!.textContent = ((s.customer_charge_micros ?? 0) / 1000000).toFixed(2); });</script>
+<script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+  fetch(`${apiBaseUrl}/v1/usage`).then(async r => {
+    if (!r.ok) {
+      location.href = "/login";
+      return;
+    }
+
+    const d = await r.json();
+    const s = d.summary || {};
+
+    const requests = document.querySelector("#requests");
+    const input = document.querySelector("#input");
+    const output = document.querySelector("#output");
+    const charges = document.querySelector("#charges");
+
+    if (requests) requests.textContent = s.requests ?? 0;
+    if (input) input.textContent = s.input_tokens ?? 0;
+    if (output) output.textContent = s.output_tokens ?? 0;
+
+    if (charges) {
+      charges.textContent =
+        ((s.customer_charge_micros ?? 0) / 1000000).toFixed(2);
+    }
+  });
+</script>

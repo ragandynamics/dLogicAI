@@ -1,7 +1,8 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { cors } from "hono/cors";
 import { z } from "zod";
-import { registerBillingRoutes } from "./billing";
 
 /* -------------------------------------------------------------------------- */
 /* TYPES                                                                      */
@@ -13,8 +14,6 @@ type Env = {
   MASTER_KEY: string;
   OPENAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
-  STRIPE_SECRET_KEY?: string;
-  STRIPE_WEBHOOK_SECRET?: string;
 };
 
 type AuthContext = {
@@ -37,6 +36,8 @@ type HonoVariables = {
   apiProjectId?: string;
   apiKey?: string;
 };
+
+type AppContext = Context<{ Bindings: Env; Variables: HonoVariables }>;
 
 const app = new Hono<{
   Bindings: Env;
@@ -65,7 +66,7 @@ function totalAvailableCredits(account: CreditAccount) {
 }
 
 async function getCreditAccount(
-  c: any,
+  c: AppContext,
   tenantId: string
 ): Promise<CreditAccount | null> {
   return (await c.env.DB.prepare(
@@ -80,7 +81,7 @@ async function getCreditAccount(
 }
 
 async function createCreditAccount(
-  c: any,
+  c: AppContext,
   tenantId: string,
   initialCredits: number
 ) {
@@ -175,10 +176,10 @@ function now() {
 }
 
 function jsonError(
-  c: any,
+  c: AppContext,
   code: string,
   message: string,
-  status = 400
+  status: ContentfulStatusCode = 400
 ) {
   return c.json(
     {
@@ -199,7 +200,7 @@ function jsonError(
  *   https://... -> Secure
  */
 function sessionCookie(
-  c: any,
+  c: AppContext,
   sessionId: string,
   maxAge: number
 ) {
@@ -291,7 +292,7 @@ async function hashPassword(password: string) {
     ["deriveBits"]
   );
 
-  const iterations = 150000;
+  const iterations = 100000;
 
   const bits = await crypto.subtle.deriveBits(
     {
@@ -497,7 +498,7 @@ function bearer(request: Request) {
 }
 
 async function sessionAuth(
-  c: any
+  c: AppContext
 ): Promise<AuthContext | null> {
   const cookies = parseCookies(
     c.req.header("Cookie")
@@ -541,7 +542,7 @@ async function sessionAuth(
 }
 
 async function apiKeyAuth(
-  c: any
+  c: AppContext
 ): Promise<AuthContext | null> {
   const raw = bearer(c.req.raw);
 
@@ -606,7 +607,7 @@ async function apiKeyAuth(
 }
 
 async function requireDashboard(
-  c: any
+  c: AppContext
 ): Promise<AuthContext | null> {
   const auth = await sessionAuth(c);
 
@@ -620,7 +621,7 @@ async function requireDashboard(
 }
 
 async function requireApi(
-  c: any
+  c: AppContext
 ): Promise<AuthContext | null> {
   const auth = await apiKeyAuth(c);
 
@@ -733,7 +734,7 @@ async function detectLanguage(
 /* -------------------------------------------------------------------------- */
 
 async function reserveCredits(
-  c: any,
+  c: AppContext,
   tenantId: string,
   requestId: string,
   projectId: string,
@@ -925,7 +926,7 @@ function costMicros(
 /* -------------------------------------------------------------------------- */
 
 async function reserveUsage(
-  c: any,
+  c: AppContext,
   plan: any,
   requestId: string,
   projectId: string,
@@ -954,6 +955,11 @@ async function reserveUsage(
    * This prevents two simultaneous requests
    * from both passing the quota check.
    */
+  const auth = c.get("auth");
+  if (!auth) {
+    return false;
+  }
+
   const result =
     await c.env.DB.prepare(
       `
@@ -1012,7 +1018,7 @@ async function reserveUsage(
       .bind(
         id("use"),
         requestId,
-        c.get("auth").tenantId,
+        auth.tenantId,
         projectId,
         provider,
         model,
@@ -1020,7 +1026,7 @@ async function reserveUsage(
         inputLanguage,
         outputLanguage,
         now(),
-        c.get("auth").tenantId,
+        auth.tenantId,
         periodStart,
         includedRequests
       )
@@ -1311,7 +1317,7 @@ async function callGemini(
 /* -------------------------------------------------------------------------- */
 
 async function resolveProvider(
-  c: any,
+  c: AppContext,
   projectId: string,
   requestedProvider?: string
 ) {
@@ -1427,12 +1433,32 @@ app.post(
         .max(200),
     });
 
-    const parsed =
-      schema.safeParse(
-        await c.req
-          .json()
-          .catch(() => ({}))
-      );
+let body: unknown;
+
+try {
+  body = await c.req.json();
+} catch (error) {
+  console.error("REGISTER_JSON_PARSE_ERROR", {
+    error: error instanceof Error ? error.message : String(error),
+    contentType: c.req.header("content-type"),
+  });
+
+  return jsonError(
+    c,
+    "INVALID_JSON",
+    "Request body must be valid JSON.",
+    400
+  );
+}
+
+console.log("REGISTER_BODY_TYPES", {
+  type: typeof body,
+  name: typeof (body as any)?.name,
+  email: typeof (body as any)?.email,
+  password: typeof (body as any)?.password,
+});
+
+const parsed = schema.safeParse(body);
 
     if (!parsed.success) {
       return jsonError(
@@ -2667,7 +2693,7 @@ app.post(
     if (!creditReservation.ok) {
       return jsonError(
         c,
-        creditReservation.code,
+        (creditReservation.code ?? "BILLING_ERROR"),
         creditReservation.code === "NO_CREDIT_ACCOUNT"
           ? "No AI credit account is configured for this tenant."
           : "Insufficient AI credits. Please purchase additional credits or wait for your subscription credits to renew.",
@@ -3345,12 +3371,5 @@ app.get(
 /* -------------------------------------------------------------------------- */
 /* EXPORT                                                                     */
 /* -------------------------------------------------------------------------- */
-
-registerBillingRoutes(app, {
-  requireDashboard,
-  jsonError,
-  id,
-  now,
-});
 
 export default app;

@@ -9,13 +9,14 @@
     "check": "astro check"
   },
   "dependencies": {
+    "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "latest",
     "@dlogicai/shared": "workspace:*",
-    "astro": "latest",
-    "typescript": "latest"
+    "astro": "latest"
   },
   "devDependencies": {
     "@tailwindcss/vite": "latest",
-    "tailwindcss": "latest"
+    "tailwindcss": "latest",
+    "typescript": "^6.0.3"
   }
 }

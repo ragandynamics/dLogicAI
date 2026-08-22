@@ -1,4 +1,5 @@
 ---
+import { API_BASE_URL } from "../../types/env";
 import AppLayout from "../../layouts/AppLayout.astro";
 ---
 
@@ -45,12 +46,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
     </div>
   </form>
 
-  <script is:inline>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
     const form = document.querySelector("#settings");
     const message = document.querySelector("#message");
 
     async function load() {
-      const response = await fetch("/api/organization", { credentials: "include" });
+      const response = await fetch(`${apiBaseUrl}/v1/organization`, { credentials: "include" });
       if (response.status === 401) {
         location.href = "/login";
         return;
@@ -69,7 +70,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      const response = await fetch("/api/organization", {
+      const response = await fetch(`${apiBaseUrl}/v1/organization`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

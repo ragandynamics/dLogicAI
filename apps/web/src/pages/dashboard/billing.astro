@@ -1,5 +1,6 @@
 ---
 import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
 ---
 
 <AppLayout title="Subscription" appShell={true}>
@@ -22,7 +23,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 
   <p id="message" class="mt-6 min-h-5 text-sm" role="status"></p>
 
-  <script is:inline>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
     const subscriptionEl = document.querySelector("#subscription");
     const plansEl = document.querySelector("#plans");
     const messageEl = document.querySelector("#message");
@@ -35,7 +36,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
         : `$${(Number(cents) / 100).toFixed(0)}/month`;
 
     async function api(path, options = {}) {
-      const response = await fetch(`/api${path}`, {
+      const response = await fetch(`${apiBaseUrl}/v1${path}`, {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         ...options,
