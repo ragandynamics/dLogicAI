@@ -1,17 +1,15 @@
 import type { APIRoute } from "astro";
 
-const API_BASE_URL =
-  import.meta.env.PUBLIC_API_BASE_URL || "http://127.0.0.1:8787";
-
-  //Debug code
-  console.log("PUBLIC_API_BASE_URL:", import.meta.env.PUBLIC_API_BASE_URL);
-console.log("API_BASE_URL:", API_BASE_URL);
+const API_ORIGIN =
+  import.meta.env.API_BASE_URL ||
+  import.meta.env.PUBLIC_API_BASE_URL ||
+  "http://127.0.0.1:8787";
 
 export const ALL: APIRoute = async ({ request, params }) => {
   const path = params.path || "";
 
   const upstreamPath =
-    path === "health" || path.startsWith("health/")
+    path === "health" || path.startsWith("health/") || path.startsWith("v1/")
       ? `/${path}`
       : `/v1/${path}`;
 
@@ -19,7 +17,7 @@ export const ALL: APIRoute = async ({ request, params }) => {
   headers.delete("host");
 
   const response = await fetch(
-    `${API_BASE_URL}${upstreamPath}`,
+    `${API_ORIGIN}${upstreamPath}`,
     {
       method: request.method,
       headers,

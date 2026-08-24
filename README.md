@@ -65,5 +65,9 @@ pnpm --dir apps/web check
 pnpm --dir apps/web build
 pnpm --dir apps/web exec wrangler deploy --env uat
 
+# test in local
+apps/api - npx wrangler dev
+apps/web - pnpm dev
+
 
 
