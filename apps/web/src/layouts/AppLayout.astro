@@ -9,6 +9,7 @@ interface Props {
 
 const { title = "dLogicAI", appShell = false } = Astro.props;
 const pathname = Astro.url.pathname;
+const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || "";
 
 const navGroups = [
   {
@@ -17,6 +18,7 @@ const navGroups = [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/dashboard/services", label: "Chat Services" },
       { href: "/dashboard/conversations", label: "Conversations" },
+      { href: "/dashboard/playground", label: "API Playground" },
       { href: "/dashboard/usage", label: "Usage & Intelligence" },
     ],
   },
@@ -42,6 +44,7 @@ const navGroups = [
       { href: "/dashboard/settings", label: "Settings" },
       { href: "/dashboard/data-governance", label: "Data Governance" },
       { href: "/dashboard/integrations", label: "Integrations" },
+      { href: "/dashboard/embed", label: "Web Embed" },
     ],
   },
 ];
@@ -67,7 +70,7 @@ const isActive = (href: string) =>
             <a href="/dashboard" class="mb-8 px-3">
               <div class="text-2xl font-extrabold tracking-tight">dLogicAI</div>
               <div class="mt-1 text-[11px] leading-4 text-slate-400">
-                Turn customer conversations into guided business outcomes.
+                AI Powered Customer Conversations
               </div>
             </a>
 
@@ -123,7 +126,7 @@ const isActive = (href: string) =>
               <a href="/dashboard" class="min-w-0">
                 <div class="text-xl font-extrabold tracking-tight text-slate-900">dLogicAI</div>
                 <div class="mt-0.5 max-w-[240px] text-[10px] leading-4 text-slate-500">
-                  Turn customer conversations into guided business outcomes.
+                  AI Powered Customer Conversations
                 </div>
               </a>
 
@@ -168,6 +171,67 @@ const isActive = (href: string) =>
       </main>
     )}
   </body>
+
+  {gaMeasurementId && (
+    <>
+      <aside
+        id="analytics-consent"
+        class="fixed inset-x-4 bottom-4 z-50 hidden max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:left-6 sm:right-auto"
+        aria-label="Analytics consent"
+      >
+        <p class="text-sm leading-6 text-slate-700">
+          Allow anonymous usage analytics to help us improve dLogicAI?
+        </p>
+        <div class="mt-3 flex gap-2">
+          <button
+            id="analytics-accept"
+            class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Allow analytics
+          </button>
+          <button
+            id="analytics-reject"
+            class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Decline
+          </button>
+        </div>
+      </aside>
+
+      <script is:inline define:vars={{ gaMeasurementId }}>
+        const analyticsConsentKey = "dlogicai_analytics_consent";
+        const analyticsBanner = document.querySelector("#analytics-consent");
+
+        function loadAnalytics() {
+          if (window.__dlogicaiAnalyticsLoaded || !gaMeasurementId) return;
+          window.__dlogicaiAnalyticsLoaded = true;
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = function () { window.dataLayer.push(arguments); };
+          window.gtag("js", new Date());
+          window.gtag("config", gaMeasurementId, { anonymize_ip: true });
+          const script = document.createElement("script");
+          script.async = true;
+          script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaMeasurementId)}`;
+          document.head.appendChild(script);
+        }
+
+        const consent = window.localStorage.getItem(analyticsConsentKey);
+        if (consent === "accepted") loadAnalytics();
+        if (!consent) analyticsBanner?.classList.remove("hidden");
+
+        document.querySelector("#analytics-accept")?.addEventListener("click", () => {
+          window.localStorage.setItem(analyticsConsentKey, "accepted");
+          analyticsBanner?.remove();
+          loadAnalytics();
+        });
+
+        document.querySelector("#analytics-reject")?.addEventListener("click", () => {
+          window.localStorage.setItem(analyticsConsentKey, "rejected");
+          analyticsBanner?.remove();
+        });
+      </script>
+    </>
+  )}
 
   {appShell && (
     <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>

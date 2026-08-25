@@ -46,6 +46,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
     </div>
   </form>
 
+  <section class="mt-8 max-w-3xl rounded-2xl border border-red-200 bg-white p-6 shadow-sm sm:p-8">
+    <h2 class="text-lg font-bold text-slate-950">Deactivate account</h2>
+    <p class="mt-1 text-sm text-slate-600">This revokes your sessions and prevents future sign-in.</p>
+    <button id="deactivate-account" type="button" class="mt-4 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50">Deactivate account</button>
+  </section>
+
   <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
     const form = document.querySelector("#settings");
     const message = document.querySelector("#message");
@@ -90,6 +96,16 @@ import AppLayout from "../../layouts/AppLayout.astro";
         : data?.error?.message || "Unable to save settings.";
 
       message.className = `text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
+    });
+
+    document.querySelector("#deactivate-account")?.addEventListener("click", async () => {
+      if (!confirm("Type DEACTIVATE in the next prompt to continue.")) return;
+      const confirmation = prompt("Type DEACTIVATE to confirm:");
+      if (confirmation !== "DEACTIVATE") return;
+      const response = await fetch(`${apiBaseUrl}/v1/account/deactivate`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { message.textContent = data?.error?.message || "Unable to deactivate account."; message.className = "text-sm text-red-600"; return; }
+      window.location.href = "/";
     });
 
     load();

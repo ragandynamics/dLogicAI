@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { cors } from "hono/cors";
 import { z } from "zod";
+import { registerBillingRoutes } from "./billing";
 
 /* -------------------------------------------------------------------------- */
 /* TYPES                                                                      */
@@ -14,11 +15,14 @@ type Env = {
   MASTER_KEY: string;
   OPENAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  CORS_ORIGINS?: string;
+  APP_ORIGINS?: string;
 };
 
 type AuthContext = {
   userId: string;
   tenantId: string;
+  role: string;
 };
 
 type ProviderResult = {
@@ -144,7 +148,15 @@ async function createCreditAccount(
 app.use(
   "*",
   cors({
-    origin: (origin) => origin || "*",
+    origin: (origin, c) => {
+      const allowedOrigins = new Set(
+        (c.env.CORS_ORIGINS || "http://localhost:4321,http://127.0.0.1:4321")
+          .split(",")
+          .map((value: string) => value.trim())
+          .filter(Boolean),
+      );
+      return origin && allowedOrigins.has(origin) ? origin : "";
+    },
     credentials: true,
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
@@ -381,6 +393,15 @@ async function verifyPassword(
   }
 }
 
+const passwordSchema = z
+  .string()
+  .min(12, "Password must be at least 12 characters.")
+  .max(200)
+  .regex(/[a-z]/, "Password must include a lowercase letter.")
+  .regex(/[A-Z]/, "Password must include an uppercase letter.")
+  .regex(/[0-9]/, "Password must include a number.")
+  .regex(/[^A-Za-z0-9]/, "Password must include a special character.");
+
 /* -------------------------------------------------------------------------- */
 /* HASHING                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -515,13 +536,14 @@ async function sessionAuth(
     `
     SELECT
       s.user_id,
-      m.tenant_id
+      s.tenant_id,
+      m.role
     FROM sessions s
     JOIN memberships m
       ON m.user_id = s.user_id
+      AND m.tenant_id = s.tenant_id
     WHERE s.id = ?
       AND s.expires_at > ?
-    ORDER BY m.created_at ASC
     LIMIT 1
     `
   )
@@ -529,6 +551,7 @@ async function sessionAuth(
     .first<{
       user_id: string;
       tenant_id: string;
+      role: string;
     }>();
 
   if (!row) {
@@ -538,6 +561,7 @@ async function sessionAuth(
   return {
     userId: row.user_id,
     tenantId: row.tenant_id,
+    role: row.role,
   };
 }
 
@@ -603,6 +627,7 @@ async function apiKeyAuth(
   return {
     userId: "api",
     tenantId: row.tenant_id,
+    role: "api",
   };
 }
 
@@ -619,6 +644,13 @@ async function requireDashboard(
 
   return auth;
 }
+
+registerBillingRoutes(app, {
+  requireDashboard,
+  jsonError,
+  id,
+  now,
+});
 
 async function requireApi(
   c: AppContext
@@ -1499,10 +1531,7 @@ app.post(
         .email()
         .max(255),
 
-      password: z
-        .string()
-        .min(10)
-        .max(200),
+      password: passwordSchema,
     });
 
 let body: unknown;
@@ -1701,15 +1730,17 @@ const parsed = schema.safeParse(body);
       INSERT INTO sessions (
         id,
         user_id,
+        tenant_id,
         expires_at,
         created_at
       )
-      VALUES (?,?,?,?)
+      VALUES (?,?,?,?,?)
       `
     )
       .bind(
         sessionId,
         userId,
+        tenantId,
         t +
           30 *
             86400000,
@@ -1790,6 +1821,7 @@ app.post(
           password_hash
         FROM users
         WHERE email = ?
+          AND status = 'active'
         `
       )
         .bind(normalizedEmail)
@@ -1818,7 +1850,7 @@ app.post(
     const membership =
       await c.env.DB.prepare(
         `
-        SELECT tenant_id
+        SELECT tenant_id, role
         FROM memberships
         WHERE user_id = ?
         ORDER BY created_at ASC
@@ -1828,6 +1860,7 @@ app.post(
         .bind(row.id)
         .first<{
           tenant_id: string;
+          role: string;
         }>();
 
     if (!membership) {
@@ -1849,15 +1882,17 @@ app.post(
       INSERT INTO sessions (
         id,
         user_id,
+        tenant_id,
         expires_at,
         created_at
       )
-      VALUES (?,?,?,?)
+      VALUES (?,?,?,?,?)
       `
     )
       .bind(
         sessionId,
         row.id,
+        membership.tenant_id,
         t +
           30 *
             86400000,
@@ -1932,6 +1967,20 @@ app.post(
 /* -------------------------------------------------------------------------- */
 /* CURRENT USER                                                               */
 /* -------------------------------------------------------------------------- */
+
+app.post("/v1/account/deactivate", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+  const body = await c.req.json().catch(() => ({}));
+  if (body.confirmation !== "DEACTIVATE") return jsonError(c, "CONFIRMATION_REQUIRED", "Type DEACTIVATE to confirm account deactivation.", 400);
+
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE users SET status='inactive', updated_at=? WHERE id=?").bind(now(), auth.userId),
+    c.env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(auth.userId),
+  ]);
+  c.header("Set-Cookie", sessionCookie(c, "", 0));
+  return c.json({ deactivated: true });
+});
 
 app.get(
   "/v1/me",
@@ -2023,6 +2072,29 @@ app.get("/v1/billing/credits", async (c) => {
       auto_topup: { enabled: Boolean(account.auto_topup_enabled), threshold: account.auto_topup_threshold, credits: account.auto_topup_credits, limit: account.auto_topup_limit }
     }
   });
+});
+
+app.get("/v1/billing/credits/ledger", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+
+  const requestedLimit = Number(c.req.query("limit") || 100);
+  if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1) {
+    return jsonError(c, "INVALID_REQUEST", "limit must be a positive integer.", 400);
+  }
+
+  const limit = Math.min(requestedLimit, 100);
+  const { results } = await c.env.DB.prepare(
+    `SELECT
+       id, entry_type, source, amount, balance_after, reference_type,
+       reference_id, description, expires_at, created_at
+     FROM credit_ledger
+     WHERE tenant_id = ?
+     ORDER BY created_at DESC, id DESC
+     LIMIT ?`
+  ).bind(auth.tenantId, limit).all();
+
+  return c.json({ ledger: results });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -2425,6 +2497,17 @@ app.get(
     });
   }
 );
+
+app.post("/v1/projects/:projectId/api-keys/:keyId/deactivate", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+  const result = await c.env.DB.prepare(`
+    UPDATE api_keys SET status='revoked'
+    WHERE id=? AND project_id=? AND tenant_id=? AND status='active'
+  `).bind(c.req.param("keyId"), c.req.param("projectId"), auth.tenantId).run();
+  if (!result.meta.changes) return jsonError(c, "NOT_FOUND", "Active API key not found.", 404);
+  return c.json({ deactivated: true });
+});
 
 /* -------------------------------------------------------------------------- */
 /* PROVIDERS - CREATE BYOK                                                    */

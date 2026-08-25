@@ -28,7 +28,7 @@ The Astro proxy maps:
 
 - `/api/auth/login` -> backend `/v1/auth/login`
 - `/api/auth/register` -> backend `/v1/auth/register`
-- `/api/plans` -> backend `/v1/plans`
+- `/api/plans` -> backend `/v1/billing/catalog`
 - `/api/billing/...` -> backend `/v1/billing/...`
 - `/api/projects/...` -> backend `/v1/projects/...`
 - `/api/usage` -> backend `/v1/usage`

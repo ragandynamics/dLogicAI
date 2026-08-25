@@ -49,20 +49,15 @@ import AppLayout from "../layouts/AppLayout.astro";
 
           <div>
             <label for="password" class="text-sm font-medium text-slate-700">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minlength="10"
-              autocomplete="new-password"
-              class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="At least 10 characters"
-            />
+            <div class="relative mt-1.5">
+              <input id="password" name="password" type="password" required minlength="12" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{12,}" autocomplete="new-password" class="block w-full rounded-lg border border-slate-300 px-3 py-2.5 pr-16 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="At least 12 characters" />
+              <button id="toggle-password" type="button" class="absolute inset-y-0 right-3 text-xs font-semibold text-slate-500">Show</button>
+            </div>
+            <p class="mt-1.5 text-xs text-slate-500">Use 12+ characters with uppercase, lowercase, a number, and a special character.</p>
           </div>
 
           <div class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-            Free accounts receive the AI credits configured on the dLogicAI Free plan.
+            Start with a 7-day Developer trial. A payment method is required, and you can cancel anytime before the trial ends.
           </div>
 
           <button
@@ -86,6 +81,14 @@ import AppLayout from "../layouts/AppLayout.astro";
   </div>
 
   <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+    document.querySelector("#toggle-password")?.addEventListener("click", () => {
+      const input = document.querySelector("#password");
+      const button = document.querySelector("#toggle-password");
+      if (!input || !button) return;
+      input.type = input.type === "password" ? "text" : "password";
+      button.textContent = input.type === "password" ? "Show" : "Hide";
+    });
+
     document.querySelector("#register")?.addEventListener("submit", async (event) => {
       event.preventDefault();
 
@@ -114,7 +117,26 @@ import AppLayout from "../layouts/AppLayout.astro";
           throw new Error(data?.error?.message || "Registration failed.");
         }
 
-        window.location.href = "/dashboard";
+        try {
+          const checkoutResponse = await fetch(`${apiBaseUrl}/v1/billing/stripe/checkout`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              plan_id: "plan_developer",
+              trial: true,
+              success_url: `${window.location.origin}/dashboard/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+              cancel_url: `${window.location.origin}/dashboard/billing?checkout=cancelled`,
+            }),
+          });
+          const checkout = await checkoutResponse.json().catch(() => ({}));
+          if (!checkoutResponse.ok || !checkout.checkout_url) {
+            throw new Error(checkout?.error?.message || "Unable to start the trial.");
+          }
+          window.location.href = checkout.checkout_url;
+        } catch (err) {
+          window.location.href = "/dashboard/billing?checkout=unavailable";
+        }
       } catch (err) {
         if (error) {
           error.textContent =

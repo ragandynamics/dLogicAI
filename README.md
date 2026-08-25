@@ -24,6 +24,11 @@ Conversational AI infrastructure for web and mobile applications.
 # apps/web - pnpm dev
 # Local execution
 pnpm --filter @dlogicai/web dev
+
+# Optional Google Analytics 4
+# Analytics loads only after the visitor accepts the consent prompt.
+$env:PUBLIC_GA_MEASUREMENT_ID="G-XXXXXXXXXX"
+
 # UAT
 pnpm --filter @dlogicai/web exec wrangler deploy --env uat
 #Prod
@@ -44,6 +49,10 @@ npx wrangler deploy --env uat
 # Local Dev DB migrations - tables
 cd apps/api
 pnpm exec wrangler d1 migrations apply dlogicai-db --local
+
+# Local Stripe test configuration (do not commit this file)
+# Copy apps/api/dev.vars.example to apps/api/.dev.vars, then replace
+# STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET with Stripe test-mode values.
 
 # Logs UAT API
 pnpm exec wrangler tail --env uat
@@ -70,4 +79,9 @@ apps/api - npx wrangler dev
 apps/web - pnpm dev
 
 
+# Tell Codex
+Use C:\CloudFlare\dlogicai as the project root.
 
+Read and follow the AGENTS.md in the project root before making any changes.
+
+Work only within this repository.

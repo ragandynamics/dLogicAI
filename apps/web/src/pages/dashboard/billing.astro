@@ -35,6 +35,8 @@ import { API_BASE_URL } from "../../types/env";
         ? "$0"
         : `$${(Number(cents) / 100).toFixed(0)}/month`;
 
+      const limit = (value, suffix = "") => Number(value || 0) > 0 ? `${Number(value).toLocaleString()}${suffix}` : "Not included";
+
     async function api(path, options = {}) {
       const response = await fetch(`${apiBaseUrl}/v1${path}`, {
         credentials: "include",
@@ -63,11 +65,13 @@ import { API_BASE_URL } from "../../types/env";
       try {
         const [subscriptionData, plansData] = await Promise.all([
           api("/billing/subscription"),
-          api("/plans"),
+          api("/billing/catalog"),
         ]);
 
         const s = subscriptionData.subscription;
         currentPlanId = s.plan_id;
+        const currentPlanPrice = Number(s.monthly_price_cents || 0);
+        const pendingPlanId = s.pending_plan_id;
 
         subscriptionEl.innerHTML = `
           <div class="grid gap-6 lg:grid-cols-[1fr_auto]">
@@ -101,35 +105,43 @@ import { API_BASE_URL } from "../../types/env";
                 →
                 <strong class="text-slate-900">${new Date(Number(s.current_period_end)).toLocaleDateString()}</strong>
               </div>
+              ${pendingPlanId && Number(s.trial_ends_at) > 0 ? `<div class="mt-3 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">${s.pending_plan_name} trial ends ${new Date(Number(s.trial_ends_at)).toLocaleDateString()}.</div>` : ""}
             </div>
 
             <div class="flex items-start">
-              <button id="cancel" class="rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50">
-                ${s.cancel_at_period_end ? "Cancellation scheduled" : "Cancel at period end"}
-              </button>
+              ${s.external_subscription_id
+                ? '<button id="manage" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Manage subscription</button>'
+                : ''}
             </div>
           </div>
         `;
 
-        document.querySelector("#cancel")?.addEventListener("click", cancelSubscription);
+        document.querySelector("#manage")?.addEventListener("click", openPortal);
 
-        plansEl.innerHTML = (plansData.plans || []).map((plan) => `
-          <article class="rounded-2xl border ${plan.id === currentPlanId ? "border-blue-300 ring-2 ring-blue-50" : "border-slate-200"} bg-white p-5 shadow-sm">
+        plansEl.innerHTML = (plansData.plans || []).map((plan) => {
+          const isCurrent = plan.id === currentPlanId;
+          const isPending = plan.id === pendingPlanId;
+          const isUpgrade = Number(plan.monthly_price_cents || 0) > currentPlanPrice;
+          const isDisabled = isCurrent || isPending || !isUpgrade;
+          return `
+          <article class="rounded-2xl border ${isCurrent ? "border-blue-300 ring-2 ring-blue-50" : "border-slate-200"} bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <h3 class="font-bold text-slate-950">${plan.name}</h3>
-              ${plan.id === currentPlanId ? '<span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">Current</span>' : ""}
+              ${isCurrent ? '<span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">Current</span>' : isPending ? '<span class="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">Trial pending</span>' : ""}
             </div>
             <p class="mt-2 text-2xl font-extrabold text-slate-950">${money(plan.monthly_price_cents)}</p>
             <p class="mt-3 text-sm text-slate-500">${Number(plan.included_requests || 0).toLocaleString()} requests · ${plan.max_projects} projects · ${plan.max_api_keys} API keys</p>
+            <p class="mt-3 text-sm text-slate-500">${limit(plan.max_knowledge_bases)} knowledge bases · ${limit(plan.max_documents)} documents · ${limit(Number(plan.max_storage_bytes || 0) / (1024 * 1024 * 1024), " GB")} RAG storage</p>
             <button
               data-plan="${plan.id}"
-              ${plan.id === currentPlanId ? "disabled" : ""}
-              class="mt-5 w-full rounded-lg ${plan.id === currentPlanId ? "bg-slate-100 text-slate-400" : "bg-blue-600 text-white hover:bg-blue-700"} px-4 py-2.5 text-sm font-semibold"
+              ${isDisabled ? "disabled" : ""}
+              class="mt-5 w-full rounded-lg ${isDisabled ? "bg-slate-100 text-slate-400" : "bg-blue-600 text-white hover:bg-blue-700"} px-4 py-2.5 text-sm font-semibold"
             >
-              ${plan.id === currentPlanId ? "Current plan" : "Change to this plan"}
+              ${isCurrent ? "Current plan" : isPending ? "Trial pending" : isUpgrade ? "Upgrade to this plan" : "Unavailable"}
             </button>
           </article>
-        `).join("");
+        `;
+        }).join("");
 
         plansEl.querySelectorAll("[data-plan]").forEach((button) => {
           button.addEventListener("click", () => changePlan(button.dataset.plan));
@@ -144,7 +156,7 @@ import { API_BASE_URL } from "../../types/env";
     }
 
     async function changePlan(planId) {
-      if (!planId || !confirm("Change the subscription to this plan?")) return;
+      if (!planId || !confirm("Upgrade your subscription to this plan?")) return;
 
       try {
         const data = await api("/billing/subscription/change", {
@@ -152,8 +164,13 @@ import { API_BASE_URL } from "../../types/env";
           body: JSON.stringify({ plan_id: planId }),
         });
 
+        if (data.portal_required) {
+          await openPortal();
+          return;
+        }
+
         if (data.checkout_required) {
-          showMessage("Payment checkout is required for this paid plan. The payment endpoint must be enabled before activation.", true);
+          await startCheckout(planId);
           return;
         }
 
@@ -164,21 +181,55 @@ import { API_BASE_URL } from "../../types/env";
       }
     }
 
-    async function cancelSubscription() {
-      if (!confirm("Schedule this subscription for cancellation at the end of the current period?")) return;
-
+    async function startCheckout(planId) {
       try {
-        await api("/billing/subscription/cancel", {
+        const data = await api("/billing/stripe/checkout", {
           method: "POST",
-          body: "{}",
+          body: JSON.stringify({
+            plan_id: planId,
+            trial: trialRequested && planId === "plan_developer",
+            success_url: `${window.location.origin}/dashboard/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${window.location.origin}/dashboard/billing?checkout=cancelled`,
+          }),
         });
-        showMessage("Subscription cancellation has been scheduled.");
-        await load();
+        window.location.assign(data.checkout_url);
       } catch (err) {
         showMessage(err.message, true);
       }
     }
 
-    load();
+    async function openPortal() {
+      try {
+        const data = await api("/billing/stripe/portal", {
+          method: "POST",
+          body: JSON.stringify({ return_url: `${window.location.origin}/dashboard/billing` }),
+        });
+        window.location.assign(data.url);
+      } catch (err) {
+        showMessage(err.message, true);
+      }
+    }
+
+    const checkoutParams = new URLSearchParams(window.location.search);
+    const checkoutState = checkoutParams.get("checkout");
+    const checkoutSessionId = checkoutParams.get("session_id");
+    const trialRequested = checkoutState === "unavailable";
+    if (checkoutState === "cancelled") showMessage("Checkout was cancelled.", true);
+    if (checkoutState === "unavailable") showMessage("Your account is ready. Start the Developer trial from this page when Stripe is available.", true);
+
+    async function confirmCheckout() {
+      if (checkoutState !== "success" || !checkoutSessionId) return;
+      try {
+        await api("/billing/stripe/checkout/confirm", {
+          method: "POST",
+          body: JSON.stringify({ session_id: checkoutSessionId }),
+        });
+        showMessage("Checkout completed. Your subscription is active.");
+      } catch (err) {
+        showMessage(err.message || "Checkout is complete, but subscription confirmation is still pending.", true);
+      }
+    }
+
+    confirmCheckout().finally(load);
   </script>
 </AppLayout>

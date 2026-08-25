@@ -63,7 +63,7 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  plans: () => request<any>("/plans"),
+  plans: () => request<any>("/billing/catalog"),
 
   subscription: () =>
     request<any>("/billing/subscription"),
