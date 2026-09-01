@@ -1,24 +1,23 @@
 ---
 import { API_BASE_URL } from "../types/env";
 import AppLayout from "../layouts/AppLayout.astro";
+import { companyName, siteTagline } from "../lib/site";
 ---
 
 <AppLayout title="Create account">
   <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6">
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
-        <a href="/" class="text-2xl font-extrabold tracking-tight text-slate-950">
-          dLogicAI
-        </a>
+        <a href="/" class="inline-flex items-center gap-3"><img src="/favicon.ico" alt="{companyName} logo" class="h-8 w-8 rounded-md object-cover" /><div><div class="text-2xl font-extrabold tracking-tight text-slate-950">{companyName}</div><div class="mt-1 text-xs leading-4 text-slate-500">{siteTagline}</div></div></a>
         <p class="mt-2 text-sm text-slate-600">
-          Create your workspace and start with the Free plan.
+          Create your workspace and start free. Upgrade when you are ready.
         </p>
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <h1 class="text-2xl font-bold text-slate-950">Create your account</h1>
         <p class="mt-1 text-sm text-slate-500">
-          Your Free subscription and initial AI credits are created automatically.
+          Your Free workspace is created automatically and you can upgrade later.
         </p>
 
         <form id="register" class="mt-6 space-y-4">
@@ -32,6 +31,119 @@ import AppLayout from "../layouts/AppLayout.astro";
               class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               placeholder="Your name"
             />
+          </div>
+
+          <div>
+            <label for="company_name" class="text-sm font-medium text-slate-700">Company name</label>
+            <input
+              id="company_name"
+              name="company_name"
+              autocomplete="organization"
+              class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              placeholder="Your company or workspace name"
+            />
+          </div>
+
+          <div>
+            <label for="country" class="text-sm font-medium text-slate-700">Country</label>
+            <input
+              id="country"
+              name="country"
+              list="country-list"
+              autocomplete="country-name"
+              class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              placeholder="Select your country"
+            />
+            <datalist id="country-list">
+              <option value="Afghanistan"></option>
+              <option value="Albania"></option>
+              <option value="Algeria"></option>
+              <option value="Andorra"></option>
+              <option value="Angola"></option>
+              <option value="Argentina"></option>
+              <option value="Armenia"></option>
+              <option value="Australia"></option>
+              <option value="Austria"></option>
+              <option value="Azerbaijan"></option>
+              <option value="Bahrain"></option>
+              <option value="Bangladesh"></option>
+              <option value="Belarus"></option>
+              <option value="Belgium"></option>
+              <option value="Belize"></option>
+              <option value="Benin"></option>
+              <option value="Bolivia"></option>
+              <option value="Botswana"></option>
+              <option value="Brazil"></option>
+              <option value="Bulgaria"></option>
+              <option value="Burkina Faso"></option>
+              <option value="Cambodia"></option>
+              <option value="Cameroon"></option>
+              <option value="Canada"></option>
+              <option value="Chile"></option>
+              <option value="China"></option>
+              <option value="Colombia"></option>
+              <option value="Croatia"></option>
+              <option value="Cyprus"></option>
+              <option value="Czech Republic"></option>
+              <option value="Denmark"></option>
+              <option value="Dominican Republic"></option>
+              <option value="Ecuador"></option>
+              <option value="Egypt"></option>
+              <option value="Estonia"></option>
+              <option value="Ethiopia"></option>
+              <option value="Finland"></option>
+              <option value="France"></option>
+              <option value="Germany"></option>
+              <option value="Ghana"></option>
+              <option value="Greece"></option>
+              <option value="Guatemala"></option>
+              <option value="Hong Kong"></option>
+              <option value="Hungary"></option>
+              <option value="India"></option>
+              <option value="Indonesia"></option>
+              <option value="Ireland"></option>
+              <option value="Israel"></option>
+              <option value="Italy"></option>
+              <option value="Japan"></option>
+              <option value="Kenya"></option>
+              <option value="Latvia"></option>
+              <option value="Lebanon"></option>
+              <option value="Luxembourg"></option>
+              <option value="Malaysia"></option>
+              <option value="Mexico"></option>
+              <option value="Morocco"></option>
+              <option value="Netherlands"></option>
+              <option value="New Zealand"></option>
+              <option value="Nigeria"></option>
+              <option value="Norway"></option>
+              <option value="Pakistan"></option>
+              <option value="Peru"></option>
+              <option value="Philippines"></option>
+              <option value="Poland"></option>
+              <option value="Portugal"></option>
+              <option value="Romania"></option>
+              <option value="Saudi Arabia"></option>
+              <option value="Senegal"></option>
+              <option value="Singapore"></option>
+              <option value="Slovakia"></option>
+              <option value="South Africa"></option>
+              <option value="South Korea"></option>
+              <option value="Spain"></option>
+              <option value="Sri Lanka"></option>
+              <option value="Sweden"></option>
+              <option value="Switzerland"></option>
+              <option value="Taiwan"></option>
+              <option value="Thailand"></option>
+              <option value="Tunisia"></option>
+              <option value="Turkey"></option>
+              <option value="Uganda"></option>
+              <option value="Ukraine"></option>
+              <option value="United Arab Emirates"></option>
+              <option value="United Kingdom"></option>
+              <option value="United States"></option>
+              <option value="Vietnam"></option>
+              <option value="Zimbabwe"></option>
+            </datalist>
           </div>
 
           <div>
@@ -57,7 +169,7 @@ import AppLayout from "../layouts/AppLayout.astro";
           </div>
 
           <div class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-            Start with a 7-day Developer trial. A payment method is required, and you can cancel anytime before the trial ends.
+            Start free today. Upgrade to a paid plan whenever your team is ready.
           </div>
 
           <button
@@ -80,7 +192,27 @@ import AppLayout from "../layouts/AppLayout.astro";
     </div>
   </div>
 
-  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL, visitorCountryCode: Astro.request.headers.get("cf-ipcountry")?.toUpperCase() || "" }}>
+    function getDefaultCountryName(preferredCountryCode) {
+      const regionCode = preferredCountryCode || ((navigator.languages && navigator.languages[0]) || navigator.language || "en-US").split("-").pop()?.toUpperCase();
+
+      if (!regionCode || !/^[A-Z]{2}$/.test(regionCode)) {
+        return "";
+      }
+
+      try {
+        return new Intl.DisplayNames(["en"], { type: "region" }).of(regionCode) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    const defaultCountry = getDefaultCountryName(visitorCountryCode);
+    const countryField = document.querySelector("#country");
+    if (countryField && !countryField.value && defaultCountry) {
+      countryField.value = defaultCountry;
+    }
+
     document.querySelector("#toggle-password")?.addEventListener("click", () => {
       const input = document.querySelector("#password");
       const button = document.querySelector("#toggle-password");
@@ -106,6 +238,8 @@ import AppLayout from "../layouts/AppLayout.astro";
           credentials: "include",
           body: JSON.stringify({
             name: form.get("name"),
+            company_name: form.get("company_name"),
+            country: form.get("country"),
             email: form.get("email"),
             password: form.get("password"),
           }),
@@ -117,26 +251,7 @@ import AppLayout from "../layouts/AppLayout.astro";
           throw new Error(data?.error?.message || "Registration failed.");
         }
 
-        try {
-          const checkoutResponse = await fetch(`${apiBaseUrl}/v1/billing/stripe/checkout`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              plan_id: "plan_developer",
-              trial: true,
-              success_url: `${window.location.origin}/dashboard/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-              cancel_url: `${window.location.origin}/dashboard/billing?checkout=cancelled`,
-            }),
-          });
-          const checkout = await checkoutResponse.json().catch(() => ({}));
-          if (!checkoutResponse.ok || !checkout.checkout_url) {
-            throw new Error(checkout?.error?.message || "Unable to start the trial.");
-          }
-          window.location.href = checkout.checkout_url;
-        } catch (err) {
-          window.location.href = "/dashboard/billing?checkout=unavailable";
-        }
+        window.location.href = "/dashboard";
       } catch (err) {
         if (error) {
           error.textContent =

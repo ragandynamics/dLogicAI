@@ -18,6 +18,8 @@
 - billing/subscription/credits endpoints
 - health endpoint
 
+Chat Service endpoints include project-scoped list/create/read/update/delete routes and Web Chat channel binding routes. `POST /v1/responses` may include `chat_service_id` to apply a service's managed or tenant-key provider configuration.
+
 ## Contract rules
 - JSON request/response format.
 - Authentication errors must be safe and consistent.

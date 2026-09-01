@@ -5,7 +5,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
 <AppLayout title="Data Governance" appShell={true}>
   <div>
     <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Data Governance</h1>
-    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Control tenant data retention, backups and archival policies. These settings define the intended governance policy for conversations and related tenant data.</p>
+    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Reference information for dLogicAI retention, backup, archival, and deletion behavior. These controls are managed by the platform and are not configurable here.</p>
   </div>
 
   <div class="mt-8 grid gap-5 xl:grid-cols-3">
@@ -18,7 +18,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
         <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Tenant policy</span>
       </div>
       <label class="mt-6 block text-sm font-medium text-slate-700" for="retention-days">Retention period</label>
-      <select id="retention-days" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+      <select id="retention-days" disabled class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
         <option value="30">30 days</option>
         <option value="90">90 days</option>
         <option value="180">180 days</option>
@@ -37,13 +37,13 @@ import AppLayout from "../../layouts/AppLayout.astro";
         <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Protected</span>
       </div>
       <label class="mt-6 block text-sm font-medium text-slate-700" for="backup-frequency">Backup frequency</label>
-      <select id="backup-frequency" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+      <select id="backup-frequency" disabled class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
         <option>Daily</option>
         <option selected>Every 6 hours</option>
         <option>Hourly</option>
       </select>
       <label class="mt-5 block text-sm font-medium text-slate-700" for="backup-retention">Backup retention</label>
-      <select id="backup-retention" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+      <select id="backup-retention" disabled class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
         <option>7 days</option>
         <option selected>30 days</option>
         <option>90 days</option>
@@ -60,11 +60,11 @@ import AppLayout from "../../layouts/AppLayout.astro";
         <span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">Long-term</span>
       </div>
       <label class="mt-6 flex items-center gap-3 text-sm font-medium text-slate-700">
-        <input id="archive-enabled" type="checkbox" checked class="h-4 w-4 rounded border-slate-300" />
+        <input id="archive-enabled" type="checkbox" checked disabled class="h-4 w-4 rounded border-slate-300" />
         Enable archival
       </label>
       <label class="mt-5 block text-sm font-medium text-slate-700" for="archive-after">Archive after</label>
-      <select id="archive-after" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+      <select id="archive-after" disabled class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
         <option>90 days</option>
         <option selected>180 days</option>
         <option>365 days</option>
@@ -84,40 +84,4 @@ import AppLayout from "../../layouts/AppLayout.astro";
     </div>
   </section>
 
-  <div class="mt-6 flex items-center gap-4">
-    <button id="save-governance" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Save policy</button>
-    <p id="governance-message" class="text-sm text-slate-500"></p>
-  </div>
-
-  <script is:inline>
-    const STORAGE_KEY = "dlogicai-governance-preview";
-    const fields = ["retention-days", "backup-frequency", "backup-retention", "archive-enabled", "archive-after"];
-    const message = document.querySelector("#governance-message");
-
-    function loadPreview() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        if (!saved) return;
-        for (const id of fields) {
-          const el = document.querySelector(`#${id}`);
-          if (!el || saved[id] === undefined) continue;
-          if (el.type === "checkbox") el.checked = Boolean(saved[id]);
-          else el.value = saved[id];
-        }
-      } catch {}
-    }
-
-    document.querySelector("#save-governance")?.addEventListener("click", () => {
-      const data = {};
-      for (const id of fields) {
-        const el = document.querySelector(`#${id}`);
-        if (el) data[id] = el.type === "checkbox" ? el.checked : el.value;
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      message.textContent = "Policy saved in this browser. Connect the tenant governance API to persist it server-side.";
-      message.className = "text-sm text-emerald-600";
-    });
-
-    loadPreview();
-  </script>
 </AppLayout>

@@ -1,0 +1,50 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
+---
+
+<AppLayout title="Service Requests" appShell={true}>
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Service Requests</h1>
+    <p class="mt-1 text-sm text-slate-600">Create a request and track progress through your service desk.</p>
+  </div>
+
+  <form id="request-form" class="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <label class="text-sm font-medium text-slate-700" for="subject">Subject</label>
+    <input id="subject" required minlength="3" maxlength="160" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+    <label class="mt-4 block text-sm font-medium text-slate-700" for="description">Description</label>
+    <textarea id="description" required maxlength="10000" rows="5" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"></textarea>
+    <button class="mt-4 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Submit request</button>
+    <p id="message" class="mt-3 min-h-5 text-sm" role="status"></p>
+  </form>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-bold text-slate-950">Your requests</h2>
+    <div id="requests" class="mt-4 space-y-3"></div>
+  </section>
+
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+    const requests = document.querySelector("#requests");
+    const message = document.querySelector("#message");
+    const form = document.querySelector("#request-form");
+    const escapeHtml = (value) => String(value).replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[character]);
+
+    async function loadRequests() {
+      const response = await fetch(`${apiBaseUrl}/v1/service-requests`, { credentials: "include" });
+      if (response.status === 401) { location.href = "/login"; return; }
+      const data = await response.json();
+      requests.innerHTML = (data.service_requests || []).map((request) => `<article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-slate-950">${escapeHtml(request.subject)}</h3><span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">${escapeHtml(request.status)}</span></div><p class="mt-2 text-sm text-slate-600">${escapeHtml(request.description)}</p><p class="mt-3 text-xs text-slate-500">Progress: ${Number(request.progress_percent || 0)}%</p></article>`).join("") || `<p class="text-sm text-slate-500">No service requests yet.</p>`;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const response = await fetch(`${apiBaseUrl}/v1/service-requests`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: document.querySelector("#subject").value, description: document.querySelector("#description").value }) });
+      const data = await response.json().catch(() => ({}));
+      message.textContent = response.ok ? "Request submitted." : data?.error?.message || "Unable to submit request.";
+      message.className = `mt-3 min-h-5 text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
+      if (response.ok) { form.reset(); await loadRequests(); }
+    });
+
+    loadRequests();
+  </script>
+</AppLayout>

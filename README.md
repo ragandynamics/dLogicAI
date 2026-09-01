@@ -54,6 +54,14 @@ pnpm exec wrangler d1 migrations apply dlogicai-db --local
 # Copy apps/api/dev.vars.example to apps/api/.dev.vars, then replace
 # STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET with Stripe test-mode values.
 
+# Transactional email (Resend; do not commit secrets)
+# Set RESEND_API_KEY, EMAIL_FROM, and APP_BASE_URL in apps/api/.dev.vars.
+
+# Public contact form (Cloudflare Turnstile)
+# Set TURNSTILE_ENABLED=true, TURNSTILE_SECRET_KEY in apps/api/.dev.vars,
+# and PUBLIC_TURNSTILE_ENABLED=true plus PUBLIC_TURNSTILE_SITE_KEY in the web
+# deployment environment. Set both *_ENABLED values to false to disable CAPTCHA.
+
 # Logs UAT API
 pnpm exec wrangler tail --env uat
 

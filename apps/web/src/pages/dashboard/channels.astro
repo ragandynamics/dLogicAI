@@ -1,5 +1,6 @@
 ---
 import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
 
 const channels = [
   {
@@ -360,10 +361,6 @@ const channels = [
           id="service-name"
           class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
         >
-          <option>Customer Assistant</option>
-          <option>Sales Assistant</option>
-          <option>Customer Service</option>
-          <option>Booking Assistant</option>
         </select>
       </div>
 
@@ -412,7 +409,7 @@ const channels = [
     </div>
   </div>
 
-  <script is:inline>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
     const addChannelButton =
       document.querySelector("#add-channel");
 
@@ -461,11 +458,48 @@ const channels = [
         });
       });
 
-    document
-      .querySelector("#save-web-chat")
-      ?.addEventListener("click", () => {
-        webChatMessage.textContent =
-          "Web Chat configuration UI is ready. API channel configuration will be connected next.";
-      });
+    const query = new URLSearchParams(window.location.search);
+    const projectId = query.get("projectId") || "";
+    const requestedServiceId = query.get("serviceId") || "";
+    const requestedService = query.get("service");
+    const serviceSelect = document.querySelector("#service-name");
+
+    async function loadServices() {
+      if (!projectId || !serviceSelect) return;
+      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        webChatMessage.textContent = data?.error?.message || "Unable to load Chat Services.";
+        return;
+      }
+      serviceSelect.innerHTML = (data.chat_services || []).map((service) => `<option value="${service.id}">${service.name}</option>`).join("");
+      const matchingService = requestedServiceId
+        ? (data.chat_services || []).find((service) => service.id === requestedServiceId)
+        : (data.chat_services || []).find((service) => service.name === requestedService);
+      if (matchingService) serviceSelect.value = matchingService.id;
+      if (matchingService || requestedService || data.chat_services?.length) openWebChat();
+      await loadChannelConfiguration();
+    }
+
+    async function loadChannelConfiguration() {
+      if (!projectId || !serviceSelect.value) return;
+      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(serviceSelect.value)}/channels`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      const webChannel = (data.channels || []).find((channel) => channel.channel === "web");
+      document.querySelector("#domain").value = webChannel?.config?.domain || "";
+    }
+
+    serviceSelect?.addEventListener("change", loadChannelConfiguration);
+    document.querySelector("#save-web-chat")?.addEventListener("click", async () => {
+      if (!projectId || !serviceSelect.value) {
+        webChatMessage.textContent = "Select a project with a Chat Service before saving.";
+        return;
+      }
+      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(serviceSelect.value)}/channels/web`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domain: document.querySelector("#domain").value.trim() }) });
+      const data = await response.json().catch(() => ({}));
+      webChatMessage.textContent = response.ok ? "Web Chat configuration saved." : data?.error?.message || "Unable to save Web Chat configuration.";
+    });
+
+    loadServices();
   </script>
 </AppLayout>

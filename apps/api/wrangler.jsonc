@@ -12,7 +12,9 @@
 	// Local development defaults.
 	// `wrangler dev` uses local D1/R2 storage by default.
 	"vars": {
-		"APP_ENV": "local"
+		"APP_ENV": "local",
+		"MANAGED_SECONDARY_PROVIDER_PRIMARY": "false",
+		"STREAMING_ENABLED": "false"
 	},
 	"d1_databases": [
 		{
@@ -31,11 +33,29 @@
 			"bucket_name": "dlogicai-prod-backups"
 		}
 	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "CHANNEL_QUEUE",
+				"queue": "dlogicai-channel-work"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "dlogicai-channel-work",
+				"max_batch_size": 10,
+				"max_batch_timeout": 5,
+				"max_retries": 3
+			}
+		]
+	},
 	"env": {
 		"uat": {
 			"name": "dlogicai-api-uat",
 			"vars": {
-				"APP_ENV": "uat"
+				"APP_ENV": "uat",
+				"MANAGED_SECONDARY_PROVIDER_PRIMARY": "false",
+				"STREAMING_ENABLED": "false"
 			},
 			"d1_databases": [
 				{
@@ -58,7 +78,9 @@
 		"production": {
 			"name": "dlogicai-api",
 			"vars": {
-				"APP_ENV": "production"
+				"APP_ENV": "production",
+				"MANAGED_SECONDARY_PROVIDER_PRIMARY": "false",
+				"STREAMING_ENABLED": "false"
 			},
 			"d1_databases": [
 				{

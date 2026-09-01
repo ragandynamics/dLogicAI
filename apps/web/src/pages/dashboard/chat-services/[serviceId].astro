@@ -16,24 +16,36 @@ const { serviceId } = Astro.params;
 
   <div id="error" class="mt-6 hidden rounded-xl bg-red-50 p-4 text-sm text-red-700"></div>
 
-  <div id="content" class="mt-8 grid gap-5 md:grid-cols-2">
+  <form id="content" class="mt-8 grid gap-5 md:grid-cols-2">
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 class="font-bold text-slate-950">Service configuration</h2>
-      <dl class="mt-5 space-y-4 text-sm">
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">Environment</dt><dd id="environment" class="font-semibold text-slate-900"></dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">Default language</dt><dd id="language" class="font-semibold text-slate-900"></dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">AI provider</dt><dd id="provider" class="font-semibold text-slate-900"></dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">Model</dt><dd id="model" class="font-semibold text-slate-900"></dd></div>
-      </dl>
+      <div class="mt-5 space-y-4 text-sm">
+        <label class="block font-medium text-slate-700">Name<input id="name" name="name" required maxlength="120" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+        <label class="block font-medium text-slate-700">Description<textarea id="description" name="description" maxlength="500" rows="3" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5"></textarea></label>
+        <label class="block font-medium text-slate-700">Default language<input id="language" name="default_language" required maxlength="32" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+        <label class="block font-medium text-slate-700">AI provider<input id="provider" name="ai_provider" required maxlength="64" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+        <label class="block font-medium text-slate-700">Provisioning<select id="provider_mode" name="provider_mode" class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="managed">dLogicAI managed AI</option><option value="tenant">Use my tenant LLM key</option></select></label>
+        <p class="text-xs leading-5 text-slate-500">Tenant mode uses the selected project credential from AI Providers. Keys are encrypted and never displayed.</p>
+        <label class="block font-medium text-slate-700">Model<input id="model" name="model" required maxlength="120" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+      </div>
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 class="font-bold text-slate-950">Conversation intelligence</h2>
       <div class="mt-5 space-y-3 text-sm text-slate-700">
-        <div id="intelligence"></div>
-        <div id="emotion"></div>
-        <div id="upsell"></div>
+        <label class="flex items-center gap-3"><input id="intelligence" name="enable_intelligence" type="checkbox" class="h-4 w-4" /> Conversation intelligence</label>
+        <label class="flex items-center gap-3"><input id="emotion" name="enable_emotion_analysis" type="checkbox" class="h-4 w-4" /> Emotion analysis</label>
+        <label class="flex items-center gap-3"><input id="upsell" name="enable_upsell_analysis" type="checkbox" class="h-4 w-4" /> Upsell analysis</label>
       </div>
+      <div class="mt-6 flex flex-wrap gap-3"><button type="submit" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Save changes</button><a id="channels-link" href="/dashboard/channels" class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Configure channels</a><button id="delete-service" type="button" class="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50">Delete</button></div>
+      <p id="save-message" class="mt-3 min-h-5 text-sm" role="status"></p>
+    </div>
+  </form>
+
+  <div class="mt-8 rounded-xl border border-blue-100 bg-blue-50 p-5">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Guided conversations</p><h2 class="mt-1 font-bold text-slate-950">Design the conversation flow visually</h2><p class="mt-1 text-sm text-slate-600">Arrange states, connect transitions, and define expected outcomes on a dedicated workspace.</p></div>
+      <a id="flow-designer-link" href={`/dashboard/dialog-flows/${encodeURIComponent(serviceId || "")}`} class="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Open flow designer</a>
     </div>
   </div>
 
@@ -50,18 +62,39 @@ const { serviceId } = Astro.params;
         document.querySelector("#service-name").textContent = service.name;
         document.querySelector("#service-description").textContent = service.description || "No description provided.";
         document.querySelector("#service-status").textContent = service.status;
-        document.querySelector("#environment").textContent = service.environment;
-        document.querySelector("#language").textContent = service.default_language;
-        document.querySelector("#provider").textContent = service.ai_provider;
-        document.querySelector("#model").textContent = service.model;
-        document.querySelector("#intelligence").textContent = `${service.enable_intelligence ? "✓" : "—"} Conversation intelligence`;
-        document.querySelector("#emotion").textContent = `${service.enable_emotion_analysis ? "✓" : "—"} Emotion analysis`;
-        document.querySelector("#upsell").textContent = `${service.enable_upsell_analysis ? "✓" : "—"} Upsell analysis`;
+        document.querySelector("#name").value = service.name;
+        document.querySelector("#description").value = service.description || "";
+        document.querySelector("#language").value = service.default_language;
+        document.querySelector("#provider").value = service.ai_provider;
+        document.querySelector("#provider_mode").value = service.provider_mode || "managed";
+        document.querySelector("#model").value = service.model;
+        document.querySelector("#intelligence").checked = Boolean(service.enable_intelligence);
+        document.querySelector("#emotion").checked = Boolean(service.enable_emotion_analysis);
+        document.querySelector("#upsell").checked = Boolean(service.enable_upsell_analysis);
+        document.querySelector("#channels-link").href = `/dashboard/channels?projectId=${encodeURIComponent(new URLSearchParams(window.location.search).get("projectId") || "")}&serviceId=${encodeURIComponent(service.id)}`;
+        document.querySelector("#flow-designer-link").href = `/dashboard/dialog-flows/${encodeURIComponent(service.id)}?projectId=${encodeURIComponent(new URLSearchParams(window.location.search).get("projectId") || "")}`;
       } catch (e) {
         error.textContent = e.message;
         error.classList.remove("hidden");
       }
     }
+    document.querySelector("#content")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const serviceForm = event.currentTarget;
+      const form = new FormData(serviceForm);
+      const projectId = new URLSearchParams(window.location.search).get("projectId") || "";
+      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(serviceId)}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), description: form.get("description"), default_language: form.get("default_language"), ai_provider: form.get("ai_provider"), model: form.get("model"), provider_mode: form.get("provider_mode"), provider_credential_id: null, enable_intelligence: form.get("enable_intelligence") === "on", enable_emotion_analysis: form.get("enable_emotion_analysis") === "on", enable_upsell_analysis: form.get("enable_upsell_analysis") === "on" }) });
+      const message = document.querySelector("#save-message");
+      const data = await response.json().catch(() => ({}));
+      message.textContent = response.ok ? "Changes saved." : data?.error?.message || "Unable to save changes.";
+      message.className = `mt-3 min-h-5 text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
+    });
+    document.querySelector("#delete-service")?.addEventListener("click", async () => {
+      if (!window.confirm("Delete this Chat Service?")) return;
+      const projectId = new URLSearchParams(window.location.search).get("projectId") || "";
+      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(serviceId)}`, { method: "DELETE", credentials: "include" });
+      if (response.ok) window.location.href = "/dashboard/services";
+    });
     loadService();
   </script>
 </AppLayout>

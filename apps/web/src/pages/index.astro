@@ -1,39 +1,154 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro";
+import { companyName, primaryCtaLabel, siteTagline } from "../lib/site";
 ---
 
 <AppLayout title="Welcome">
-  <div class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
-    <header class="border-b border-slate-200/80 bg-white/80 backdrop-blur">
+  <div class="min-h-screen bg-slate-50">
+    <header class="border-b border-slate-200 bg-white">
       <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
-        <a href="/" class="min-w-0">
-          <div class="text-xl font-extrabold tracking-tight text-slate-950">dLogicAI</div>
-          <div class="mt-0.5 text-[10px] font-medium leading-4 text-slate-500 sm:text-[11px]">
-            AI Powered Customer Conversations
+        <a href="/" class="flex min-w-0 items-center gap-3 text-left">
+          <img src="/favicon.ico" alt="{companyName} logo" class="h-9 w-9 shrink-0 rounded-md object-cover" />
+          <div class="min-w-0">
+            <div class="text-lg font-extrabold leading-5 tracking-tight text-slate-950">{companyName}</div>
+            <div class="mt-1 text-xs font-medium leading-4 text-slate-500">{siteTagline}</div>
           </div>
         </a>
         <div class="flex items-center gap-2">
-          <a href="/login" class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Sign in</a>
-          <a href="/register" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">Create account</a>
+          <a href="/login" class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950">Sign in</a>
+          <a href="/pricing" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">View plans</a>
         </div>
       </div>
     </header>
 
-    <section class="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-16 pt-20 text-center sm:px-6 lg:pb-24 lg:pt-28">
-      <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">Conversational business intelligence</span>
-      <h1 class="mt-6 max-w-4xl text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl lg:text-7xl">AI Powered Customer Conversations</h1>
-      <p class="mt-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl">dLogicAI helps businesses guide customers through sales, service, payments, billing, booking and appointments while extracting actionable conversation intelligence.</p>
+    <section class="mx-auto w-full max-w-7xl px-4 pb-16 pt-14 text-center sm:px-6 lg:px-8 lg:pb-20 lg:pt-24">
+      <div class="mx-auto max-w-4xl">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">{siteTagline}</p>
+        <h1 class="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">dLogicAI</h1>
+        <p class="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-600">Build governed AI conversations that guide customers from their first question to a useful business outcome.</p>
+      </div>
       <div class="mt-8 flex flex-wrap justify-center gap-3">
-        <a href="/dashboard" class="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">Open dashboard</a>
-        <a href="/pricing" class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">View pricing</a><a href="/login" class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Sign in</a>
+        <a href="/register" class="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">{primaryCtaLabel}</a>
+        <a href="/pricing" class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">View plans</a>
+      </div>
+      <div class="mt-10 border-t border-slate-200 pt-5 text-sm text-slate-500">
+        <span class="font-semibold text-slate-700">Built for:</span> support, sales qualification, bookings, payments, returns, and order updates.
       </div>
     </section>
 
-    <section class="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 px-4 pb-20 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">01</div><h2 class="mt-3 text-lg font-bold text-slate-950">Guided transactions</h2><p class="mt-2 text-sm leading-6 text-slate-600">Turn customer questions into guided end-to-end business journeys while still allowing free-form messages.</p></div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">02</div><h2 class="mt-3 text-lg font-bold text-slate-950">Business functions</h2><p class="mt-2 text-sm leading-6 text-slate-600">Support sales, customer service, payments, billing, booking and appointment workflows.</p></div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">03</div><h2 class="mt-3 text-lg font-bold text-slate-950">Conversation intelligence</h2><p class="mt-2 text-sm leading-6 text-slate-600">Capture intent, emotion, urgency, outcomes and commercial opportunity signals from conversations.</p></div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">04</div><h2 class="mt-3 text-lg font-bold text-slate-950">AI choice</h2><p class="mt-2 text-sm leading-6 text-slate-600">Let each tenant use dLogicAI managed AI or configure tenant-owned provider credentials.</p></div>
+    <section class="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+      <div class="border-y border-slate-200 bg-white px-6 py-8 text-center sm:px-10">
+        <p class="text-sm font-semibold uppercase tracking-wide text-blue-700">The value</p>
+        <h2 class="mx-auto mt-3 max-w-3xl text-2xl font-bold text-slate-950 sm:text-3xl">Design the conversation. Ground it in your knowledge. Measure the outcome.</h2>
+        <p class="mx-auto mt-3 max-w-3xl text-sm leading-6 text-slate-600">dLogicAI combines visual dialog flows, approved knowledge, managed or tenant-owned AI providers, and operational controls in one tenant-aware workspace.</p>
+      </div>
+    </section>
+
+    <section class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div class="mx-auto mb-6 max-w-2xl text-center">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">The platform</p>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-950">A practical operating system for AI customer service.</h2>
+        <p class="mt-3 text-base leading-7 text-slate-600">Give customers coherent answers while your team retains control over behavior, data, usage, and escalation.</p>
+      </div>
+      <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Dialog flows</p>
+          <h3 class="mt-3 text-lg font-bold text-slate-950">Design outcomes visually</h3>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Map states, conditions, milestones, handoffs, and outcomes with reusable business templates.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Knowledge bases</p>
+          <h3 class="mt-3 text-lg font-bold text-slate-950">Ground every answer</h3>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Use approved documents with plan-controlled storage, processing, and retrieval budgets.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Channels</p>
+          <h3 class="mt-3 text-lg font-bold text-slate-950">Meet customers where they are</h3>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Launch on web, Telegram, and WhatsApp with tenant-scoped installations and delivery records.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">AI and governance</p>
+          <h3 class="mt-3 text-lg font-bold text-slate-950">Control cost and access</h3>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Managed Gemini, optional GPT-5 Mini routing, BYOK, API keys, usage controls, and role-based access.</p>
+        </div>
+      </div>
+      <div class="mt-7 flex flex-wrap items-center justify-center gap-4 border-t border-slate-200 pt-6 text-center">
+        <a href="/register" class="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">Start creating customer value</a>
+        <span class="text-sm text-slate-500">Free workspace. No commitment to begin.</span>
+      </div>
+    </section>
+
+    <section class="border-y border-slate-200 bg-white">
+      <div class="mx-auto w-full max-w-7xl px-4 py-9 sm:px-6 lg:px-8">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div><p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Plans that grow with you</p><h2 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">Start focused. Expand with confidence.</h2></div>
+          <a href="/pricing" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:bg-blue-50">Compare plans</a>
+        </div>
+        <div class="mt-6 grid overflow-hidden border border-slate-200 md:grid-cols-4">
+          <div class="border-b border-slate-200 p-5 md:border-b-0 md:border-r"><div class="flex items-baseline justify-between gap-3"><h3 class="font-bold text-slate-950">Free</h3><span class="text-lg font-extrabold text-slate-950">$0</span></div><p class="mt-2 text-sm leading-6 text-slate-600">Explore one project and build your first guided journey.</p></div>
+          <div class="border-b border-slate-200 p-5 md:border-b-0 md:border-r"><div class="flex items-baseline justify-between gap-3"><h3 class="font-bold text-slate-950">Builder</h3><span class="text-lg font-extrabold text-slate-950">$29<span class="text-xs font-medium text-slate-500">/mo</span></span></div><p class="mt-2 text-sm leading-6 text-slate-600">Launch a focused pilot with flows, knowledge, and API access.</p></div>
+          <div class="border-b border-slate-200 bg-slate-950 p-5 text-white md:border-b-0 md:border-r md:border-slate-700"><div class="flex items-baseline justify-between gap-3"><h3 class="font-bold text-white">Growth</h3><span class="text-lg font-extrabold text-white">$99<span class="text-xs font-medium text-slate-300">/mo</span></span></div><p class="mt-2 text-sm leading-6 text-slate-200">Run active customer journeys across channels and integrations.</p></div>
+          <div class="p-5"><div class="flex items-baseline justify-between gap-3"><h3 class="font-bold text-slate-950">Business</h3><span class="text-lg font-extrabold text-slate-950">$399<span class="text-xs font-medium text-slate-500">/mo</span></span></div><p class="mt-2 text-sm leading-6 text-slate-600">Scale governed customer operations across teams and projects.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div class="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div class="mx-auto max-w-2xl text-center">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">How it works</p>
+          <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-950">From message to outcome in three steps</h2>
+        </div>
+        <div class="mt-8 grid gap-5 md:grid-cols-3">
+          <div class="rounded-2xl bg-slate-50 p-6 text-center">
+            <div class="text-sm font-semibold text-blue-700">01</div>
+            <h3 class="mt-3 text-lg font-bold text-slate-950">Connect your channels</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Bring in the channels your customers already use, including web and messaging touchpoints.</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-6 text-center">
+            <div class="text-sm font-semibold text-blue-700">02</div>
+            <h3 class="mt-3 text-lg font-bold text-slate-950">Design the journey</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Map the questions, actions, and handoffs that matter to each customer flow.</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-6 text-center">
+            <div class="text-sm font-semibold text-blue-700">03</div>
+            <h3 class="mt-3 text-lg font-bold text-slate-950">Launch and improve</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Go live quickly and use customer interaction data to refine the experience over time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div class="grid gap-5 lg:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Can I try it?</p>
+          <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-950">Yes. Start free.</h2>
+          <p class="mt-3 text-base leading-7 text-slate-600">Create a workspace without a credit card and explore the platform with the free plan. When you are ready, move to a paid plan that matches your team’s requests and scale.</p>
+          <div class="mt-5 flex flex-wrap justify-center gap-3">
+            <a href="/register" class="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">{primaryCtaLabel}</a>
+            <a href="/pricing" class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">See pricing</a>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">After sign up</p>
+          <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-950">You’ll be ready to launch fast.</h2>
+          <ul class="mx-auto mt-4 max-w-md space-y-3 text-left text-sm leading-6 text-slate-600">
+            <li>• Your workspace is created immediately.</li>
+            <li>• You can define projects, channels, and customer flows.</li>
+            <li>• Your team can start testing conversations before going live.</li>
+            <li>• Upgrade when usage, projects, or conversations grow.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 px-4 pb-20 text-center sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">01</div><h2 class="mt-3 text-lg font-bold text-slate-950">Guided journeys</h2><p class="mt-2 text-sm leading-6 text-slate-600">Turn questions into structured end-to-end customer flows while allowing free-form conversations when needed.</p></div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">02</div><h2 class="mt-3 text-lg font-bold text-slate-950">Key business functions</h2><p class="mt-2 text-sm leading-6 text-slate-600">Support sales, service, payments, billing, booking, and appointment workflows from one platform.</p></div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">03</div><h2 class="mt-3 text-lg font-bold text-slate-950">Conversation insights</h2><p class="mt-2 text-sm leading-6 text-slate-600">Capture intent, urgency, outcomes, and opportunity signals from customer conversations.</p></div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="text-sm font-semibold text-blue-700">04</div><h2 class="mt-3 text-lg font-bold text-slate-950">Flexible model choice</h2><p class="mt-2 text-sm leading-6 text-slate-600">Use your preferred provider or the platform-managed option for each tenant or project.</p></div>
     </section>
   </div>
 </AppLayout>

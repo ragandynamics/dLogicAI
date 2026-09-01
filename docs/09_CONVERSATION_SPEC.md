@@ -12,3 +12,5 @@
 10. Finalize or refund reservations on failure.
 
 Streaming follows the same accounting lifecycle, with final settlement after the stream completes.
+
+Authenticated tenant users may pause or resume automated responses for a conversation and send a direct agent message while automation is paused. These actions are tenant-scoped and recorded in the conversation message history.

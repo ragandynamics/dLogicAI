@@ -11,3 +11,9 @@ It should define configurable:
 - observability settings
 
 CRUD and runtime invocation must be exposed through authenticated project-scoped APIs.
+
+Provider provisioning is explicit per Chat Service:
+- `managed`: use dLogicAI's configured provider credentials.
+- `tenant`: use an encrypted tenant OpenAI or Google Gemini credential configured for the project.
+
+`POST /v1/responses` accepts an optional `chat_service_id`. When present, the service's provider mode and provider policy are applied after validating that the service belongs to the authenticated project and tenant.

@@ -52,6 +52,12 @@ jobs:
       - name: Build API
         run: pnpm --filter @dLogicAI/api build
 
+      - name: Test API
+        run: pnpm --filter @dLogicAI/api test
+
+      - name: Validate D1 migrations
+        run: pnpm --filter @dLogicAI/api db:migrate:local
+
       - name: Check frontend
         run: pnpm --filter @dlogicai/web check
 

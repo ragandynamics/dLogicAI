@@ -119,41 +119,47 @@ BYOK is an optional capability for tenant/project provider keys and is not the p
 | Domain | Status | Notes |
 |---|---|---|
 | Cloudflare Worker/Hono | 🟢 Implemented | Core API runtime |
-| Astro frontend | 🟢 Implemented | Main frontend |
+| Astro frontend | 🟢 Implemented | Main frontend with logged-in user context and Getting Started onboarding journey |
 | Tailwind CSS | 🟢 Implemented | UI styling |
 | D1 schema | 🟢 Implemented | Primary relational state |
-| Authentication | 🟢 Implemented | Requires further hardening |
-| Tenant isolation | 🟡 Partial | Sessions now bind an explicit tenant; organization switching remains |
-| Organization management | 🟡 Partial | Requires reconciliation |
-| Corporate team management | 🟡 Partial | Roles/invitations require reconciliation |
+| Authentication | 🟡 Partial | Email verification, password reset, Resend delivery, and optional TOTP enrollment added; login-time 2FA enforcement remains |
+| Tenant isolation | 🟡 Partial | Sessions bind an explicit tenant; validated organization switching is implemented; broader tenant lifecycle hardening remains |
+| Organization management | 🟡 Partial | Tenant member listing and role-protected invitations implemented; invitation email/acceptance workflow remains |
+| Corporate team management | 🟡 Partial | Existing tenant users can be added immediately; new-user invitation records are created; delivery and acceptance remain |
 | Projects | 🟢 Implemented | Tenant/project scoped |
 | API keys | 🟢 Implemented | Hashed secret storage, listing, and deactivation |
 | OpenAI | 🟢 Implemented | Provider integration |
 | Gemini | 🟢 Implemented | Provider integration |
-| Provider abstraction | 🟡 Partial | Should be formalized |
-| BYOK | 🟢 Implemented | Encrypted credentials |
+| Provider abstraction | 🟡 Partial | OpenAI/Gemini adapters implemented; managed routing defaults to Gemini 2.5 Flash-Lite and a platform deployment toggle can promote GPT-5 Mini. |
+| BYOK | 🟢 Implemented | Encrypted tenant-wide credentials available to all projects; project-level legacy credentials retained |
 | Multi-language | 🟢 Basic | Heuristic language detection |
-| Conversations | 🟢 Implemented | Core conversation flow; dashboard playground added |
-| Messages | 🟢 Implemented | Conversation messages |
+| Conversations | 🟢 Implemented | Core conversation flow; dashboard playground and tenant-user pause/resume takeover controls added |
+| Messages | 🟢 Implemented | Conversation messages and authenticated direct agent replies |
 | Usage reservation | 🟢 Implemented | Requires atomicity/hardening |
-| Usage settlement | 🟡 Partial | Streaming settlement incomplete |
-| AI credits | 🟡 Partial | Atomic reservation, source-bucket refund, tenant-scoped balance/ledger retrieval, and ledger reservation entries implemented; settlement lifecycle remains incomplete |
-| Credit ledger | 🟡 Partial | Full lifecycle not implemented |
-| Configurable billing | 🟡 Partial | Integration requires verification; configurable RAG plan entitlements added |
+| Usage settlement | 🟡 Partial | Non-streaming settlement complete; streaming token extraction and settlement implemented (DLA-004); parser unit tests pass, while streaming integration, cancellation, concurrency, and live D1 testing remain |
+| AI credits | 🟡 Partial | Managed AI reserves a bounded estimated USD-micro charge before provider invocation, then non-streaming responses settle actual token charge and refund unused source-bucket credits with ledger evidence. Streaming retains the bounded estimate until actual token settlement is implemented. |
+| Credit ledger | 🟡 Partial | Reservation, consumption settlement, and refund entries implemented; token-level lifecycle remains incomplete |
+| Configurable billing | 🟡 Partial | Configurable USD managed-AI catalog uses Free ($2), Builder ($15), Growth ($50), and Business ($200) monthly allowances with plan-configured markup; request counts are safeguards, not a second billable allowance. Local D1 migrations verified; remote billing integration requires verification. |
+| BYOK subscription offer | 🟡 Partial | Tenant-wide key detection automatically selects the configurable fixed BYOK Stripe Price; live Stripe Price configuration remains |
 | Billing API | 🟡 Partial | Subscription state, catalog, replacement Checkout upgrades, seven-day trial period display, delayed trial activation, billing-portal, and authenticated Checkout confirmation routes are registered; owner/admin enforcement and redirect validation added; end-to-end verification remains required |
 | Cost estimator | 🟡 Partial | API/UI integration requires verification |
 | Stripe | 🟡 Partial | Checkout, billing portal, and signed-webhook handlers are wired to the subscription page; trial expiry uses Stripe trial_end, in-place upgrades use the upgrade timestamp, replacement Checkouts cancel prior subscriptions, and renewals advance period dates; failed webhook retries and migration ordering fixed; Stripe configuration and end-to-end verification remain required |
 | Connector billing | 🟡 Partial | Schema/business logic ahead of runtime |
-| Connector runtime | 🔴 Not implemented | Requires connector framework, encrypted connector credentials, and adapters |
-| Chat Services | 🟡 Partial | Schema/UI ahead of runtime |
-| Conversation Intelligence | 🔴 Not implemented | Schema exists; runtime pending |
-| R2 usage | 🟡 Partial | Application usage requires verification |
+| Connector runtime | 🟡 Partial | Channel adapters plus environment-scoped commerce connector installations, encrypted credentials, credential tests, operation records, and Amazon/Shopee/Lazada/TikTok Shop UI implemented; real marketplace API adapters, retries, and dialog-flow connector execution remain |
+| Chat Services | 🟡 Partial | Project-scoped CRUD, editable business-function settings, managed/tenant provider selection, Web Chat and Telegram/WhatsApp inbound installation/conversation mapping, service-targeted provider resolution, knowledge-base attachment, and versioned dialog-flow configuration implemented; channel outbound delivery and full runtime orchestration remain |
+| Service requests | 🟡 Partial | Tenant-scoped create/list/detail API and dashboard tracking added; external service-desk synchronization remains |
+| Conversation Intelligence | 🟡 Basic | Completed non-streaming responses create tenant-scoped baseline intent, sentiment, urgency, purchase, escalation, and handoff signals; deeper analysis remains |
+| Knowledge Bases | 🟡 Partial | Tenant/project-scoped metadata, secure R2 lifecycle, text/CSV/HTML/JSON extraction, bounded overlapping D1 chunks, processing API, and Chat Service-scoped lexical retrieval implemented. Plan-configured KB, document, storage, chunk, attachment, file-size, and retrieval-context limits are enforced; owners/admins can delete processed R2 sources while retaining indexed chunks. PDF/DOCX extraction, Queue processing, Vectorize indexing, and monthly ingestion metering remain. |
+| Dialog Flows | 🟡 Runtime foundation | Full-page React Flow designer with drag/drop states, service attachment context, seven business-scenario templates, versioned visual configuration, active-state evaluation, explicit slot extraction, milestone persistence, outcome evidence, and progress API implemented; connector actions and richer extraction remain |
+| R2 usage | 🟡 Partial | Knowledge-base document lifecycle uses tenant-scoped DATA_BUCKET objects; broader application usage requires verification |
 | KV | 🟡 Planned | Not confirmed active |
-| Queues | 🟡 Planned | Not confirmed active |
+| Queues | 🟡 Planned | Future asynchronous path for large and binary document extraction |
 | Analytics | 🟡 Planned | Consent-gated Google Analytics 4 integration added; measurement ID is not enabled by default |
+| Public contact leads | 🟡 Partial | Turnstile-configurable public form and D1 lead capture added; CRM handoff remains |
 | Observability | 🟡 Partial | Requires complete application telemetry |
-| CI/CD | 🟡 Partial | Workflows require verification |
-| Automated tests | 🔴 Insufficient | Journey test pack authored in docs; API/web builds and local D1 migration pass; execution and automated suite still required |
+| Data governance | 🟡 Reference | Dashboard is reference-only; retention and deletion enforcement remains |
+| CI/CD | 🟡 Partial | Workflows require verification; tenant-facing environment promotion is not implemented |
+| Automated tests | 🟡 Partial | 53 API tests pass across accounting, tenant roles/invitations, channel adapters, and streaming token parsing; API typecheck, Astro check/build, and local D1 migration application pass; deployed UAT and broader integration coverage remain required |
 | OpenAPI | 🟡 Partial | Must be reconciled with latest implementation |
 
 ## 6. Authentication State
@@ -677,12 +683,12 @@ The current daily task is defined in `NEXT_WORK.md`.
 
 Current task:
 ```text
-DLA-001 — Implement Atomic AI Credit Reservation
+DLA-002 — Credit Reservation Rollback
 ```
 
 Status:
 ```text
-Implemented; D1-backed accounting/concurrency tests still required.
+Ready; DLA-001 was verified complete via Vitest and API TypeScript build.
 ```
 
 Do not move to lower-priority work while this blocking accounting issue remains unresolved unless explicitly instructed.
@@ -761,6 +767,7 @@ dLogicAI/
 │   ├── 10_INTELLIGENCE_SPEC.md
 │   ├── 11_USAGE_QUOTA_SPEC.md
 │   ├── 12_BILLING_PRICING_SPEC.md
+│   ├── 22_PRICING_CALCULATIONS.md
 │   ├── 13_AI_CREDITS_SPEC.md
 │   ├── 14_BYOK_SPEC.md
 │   ├── 15_CONNECTOR_SPEC.md

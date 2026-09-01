@@ -1,5 +1,6 @@
 ---
 import { API_BASE_URL } from "../types/env";
+import { companyName, siteTagline } from "../lib/site";
 import "../styles/global.css";
 
 interface Props {
@@ -7,27 +8,33 @@ interface Props {
   appShell?: boolean;
 }
 
-const { title = "dLogicAI", appShell = false } = Astro.props;
+const { title = companyName, appShell = false } = Astro.props;
 const pathname = Astro.url.pathname;
 const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID || "";
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
+const turnstileEnabled = import.meta.env.PUBLIC_TURNSTILE_ENABLED === "true";
 
 const navGroups = [
   {
     label: "Workspace",
     items: [
-      { href: "/dashboard", label: "Dashboard" },
-      { href: "/dashboard/services", label: "Chat Services" },
+      { href: "/dashboard/getting-started", label: "Getting Started" },
+      { href: "/dashboard", label: "Overview" },
       { href: "/dashboard/conversations", label: "Conversations" },
-      { href: "/dashboard/playground", label: "API Playground" },
+      { href: "/dashboard/dialog-flows", label: "Dialog Flows" },
+      { href: "/dashboard/services", label: "Chat Services" },
+      { href: "/dashboard/knowledge-bases", label: "Knowledge Bases" },
+      { href: "/dashboard/channel-installations", label: "Channel Installations" },
       { href: "/dashboard/usage", label: "Usage & Intelligence" },
     ],
   },
   {
-    label: "Development",
+    label: "Projects",
     items: [
       { href: "/dashboard/projects", label: "Projects" },
-      { href: "/dashboard/providers", label: "AI Providers" },
+      { href: "/dashboard/playground", label: "API Playground" },
       { href: "/dashboard/api-keys", label: "API Keys" },
+      { href: "/dashboard/providers", label: "AI Providers" },
     ],
   },
   {
@@ -44,6 +51,7 @@ const navGroups = [
       { href: "/dashboard/settings", label: "Settings" },
       { href: "/dashboard/data-governance", label: "Data Governance" },
       { href: "/dashboard/integrations", label: "Integrations" },
+      { href: "/dashboard/service-requests", label: "Service Requests" },
       { href: "/dashboard/embed", label: "Web Embed" },
     ],
   },
@@ -59,7 +67,7 @@ const isActive = (href: string) =>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#101828" />
-    <title>{title} · dLogicAI</title>
+    <title>{title} · {companyName}</title>
   </head>
 
   <body>
@@ -67,10 +75,13 @@ const isActive = (href: string) =>
       <div class="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside class="hidden min-h-screen bg-dlogic-navy text-white lg:block">
           <div class="sticky top-0 flex min-h-screen flex-col px-4 py-6">
-            <a href="/dashboard" class="mb-8 px-3">
-              <div class="text-2xl font-extrabold tracking-tight">dLogicAI</div>
-              <div class="mt-1 text-[11px] leading-4 text-slate-400">
-                AI Powered Customer Conversations
+            <a href="/dashboard" class="mb-8 flex items-center gap-3 px-3">
+              <img src="/favicon.ico" alt="{companyName} logo" class="h-8 w-8 rounded-md object-cover" />
+              <div>
+                <div class="text-2xl font-extrabold tracking-tight">{companyName}</div>
+                <div class="mt-1 text-[11px] leading-4 text-slate-400">
+                  {siteTagline}
+                </div>
               </div>
             </a>
 
@@ -83,20 +94,41 @@ const isActive = (href: string) =>
 
                   <div class="space-y-1">
                     {group.items.map((item) => (
-                      <a
-                        href={item.href}
-                        class:list={[
-                          "block rounded-lg px-3 py-2.5 text-sm font-medium transition",
-                          isActive(item.href)
-                            ? "bg-white/10 text-white"
-                            : "text-slate-300 hover:bg-white/5 hover:text-white",
-                        ]}
-                        aria-current={
-                          isActive(item.href) ? "page" : undefined
-                        }
-                      >
-                        {item.label}
-                      </a>
+                      item.href === "/dashboard/projects" ? (
+                        <div>
+                          <a
+                            href={item.href}
+                            class:list={[
+                              "block rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                              isActive(item.href)
+                                ? "bg-white/10 text-white"
+                                : "text-slate-300 hover:bg-white/5 hover:text-white",
+                            ]}
+                            aria-current={
+                              isActive(item.href) ? "page" : undefined
+                            }
+                          >
+                            {item.label}
+                          </a>
+                          <div id="desktop-project-list" class="ml-3 mt-1 space-y-1 border-l border-white/10 pl-3"></div>
+                          <a href="/dashboard/projects?create=1" class="ml-3 mt-2 block text-xs font-semibold text-blue-300 hover:text-white">+ Create new project</a>
+                        </div>
+                      ) : (
+                        <a
+                          href={item.href}
+                          class:list={[
+                            "block rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                            isActive(item.href)
+                              ? "bg-white/10 text-white"
+                              : "text-slate-300 hover:bg-white/5 hover:text-white",
+                          ]}
+                          aria-current={
+                            isActive(item.href) ? "page" : undefined
+                          }
+                        >
+                          {item.label}
+                        </a>
+                      )
                     ))}
                   </div>
                 </div>
@@ -121,12 +153,39 @@ const isActive = (href: string) =>
         </aside>
 
         <div class="min-w-0">
+          <header class="hidden items-center justify-end gap-4 border-b border-slate-200 bg-white/95 px-6 py-3 backdrop-blur lg:flex">
+            <div id="desktop-project-breadcrumb" class="mr-auto flex min-w-0 items-center gap-2 text-sm text-slate-500"></div>
+            <label class="flex items-center gap-2 text-xs font-semibold text-slate-500" for="desktop-environment">
+              Environment
+              <select id="desktop-environment" class="max-w-[260px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800">
+                <option>Loading…</option>
+              </select>
+            </label>
+            <div class="h-8 w-px bg-slate-200"></div>
+            <div class="relative">
+              <button id="profile-toggle" type="button" aria-expanded="false" aria-controls="profile-menu" class="flex items-center gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50">
+                <div class="max-w-[220px]"><p id="top-user-name" class="truncate text-sm font-semibold text-slate-900">Loading user…</p><p id="top-user-reference" class="truncate text-xs text-slate-500"></p></div>
+                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700" id="top-user-initials">U</div>
+              </button>
+              <div id="profile-menu" class="absolute right-0 top-12 z-30 hidden w-72 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xl">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Profile</p>
+                <p id="profile-name" class="mt-3 truncate text-sm font-semibold text-slate-900"></p>
+                <p id="profile-email" class="mt-1 truncate text-xs text-slate-500"></p>
+                <div class="mt-4 border-t border-slate-100 pt-3 text-xs"><p class="text-slate-500">Workspace</p><p id="profile-workspace" class="mt-1 font-semibold text-slate-800"></p><p class="mt-3 text-slate-500">Role and privileges</p><p id="profile-privileges" class="mt-1 leading-5 text-slate-700"></p></div>
+                <button id="profile-logout" type="button" class="mt-4 w-full rounded-lg border border-red-200 px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50">Sign out</button>
+              </div>
+            </div>
+          </header>
+
           <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur lg:hidden">
             <div class="flex items-center justify-between gap-4 px-4 py-3">
-              <a href="/dashboard" class="min-w-0">
-                <div class="text-xl font-extrabold tracking-tight text-slate-900">dLogicAI</div>
-                <div class="mt-0.5 max-w-[240px] text-[10px] leading-4 text-slate-500">
-                  AI Powered Customer Conversations
+              <a href="/dashboard" class="min-w-0 flex items-center gap-2">
+                <img src="/favicon.ico" alt="{companyName} logo" class="h-6 w-6 rounded-md object-cover" />
+                <div>
+                  <div class="text-xl font-extrabold tracking-tight text-slate-900">{companyName}</div>
+                  <div class="mt-0.5 max-w-[240px] text-[10px] leading-4 text-slate-500">
+                    {siteTagline}
+                  </div>
                 </div>
               </a>
 
@@ -136,6 +195,15 @@ const isActive = (href: string) =>
               >
                 Sign out
               </button>
+            </div>
+
+            <div class="border-t border-slate-100 px-4 py-2">
+              <button id="mobile-profile-toggle" type="button" aria-expanded="false" aria-controls="mobile-profile-menu" class="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left hover:bg-slate-50">
+                <span><span id="mobile-user-name" class="text-xs font-semibold text-slate-800">Loading user…</span><span id="mobile-user-role" class="ml-2 text-xs capitalize text-slate-500"></span><span id="mobile-tenant-name" class="mt-1 block truncate text-[11px] text-slate-500"></span></span><span class="text-xs text-slate-400">Profile</span>
+              </button>
+              <div id="mobile-profile-menu" class="hidden rounded-lg border border-slate-200 bg-white p-3 text-xs shadow-sm"><p class="font-semibold text-slate-800">Privileges</p><p id="mobile-profile-privileges" class="mt-1 leading-5 text-slate-600"></p><button id="mobile-profile-logout" type="button" class="mt-3 font-semibold text-red-700">Sign out</button></div>
+              <label class="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-500" for="mobile-environment">Environment<select id="mobile-environment" class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-800"><option>Loading…</option></select></label>
+              <div id="mobile-project-breadcrumb" class="mt-2 flex min-w-0 items-center gap-2 text-xs text-slate-500"></div>
             </div>
 
             <nav
@@ -166,9 +234,339 @@ const isActive = (href: string) =>
         </div>
       </div>
     ) : (
-      <main class="min-h-screen w-full">
-        <slot />
-      </main>
+      <>
+        <main class="min-h-screen w-full"><slot /></main>
+        <footer id="contact" class="border-t border-slate-200 bg-slate-950 text-white">
+          <div class="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_1.2fr] lg:px-8">
+            <div>
+              <div class="flex items-center gap-3">
+                <img src="/favicon.ico" alt="{companyName} logo" class="h-8 w-8 rounded-md object-cover" />
+                <div>
+                  <div class="text-xl font-extrabold tracking-tight">{companyName}</div>
+                  <div class="mt-1 text-xs leading-5 text-slate-400">{siteTagline}</div>
+                </div>
+              </div>
+              <p class="mt-6 max-w-sm text-sm leading-6 text-slate-400">Business conversations for sales, service, payments, billing, booking and customer support.</p>
+              <p class="mt-8 text-xs text-slate-500">© {new Date().getFullYear()} {companyName}. All rights reserved.</p>
+            </div>
+            <div class="flex justify-start lg:justify-end">
+              <button id="contact-toggle" type="button" aria-expanded="false" aria-controls="public-contact" class="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/10 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-white/15">
+                <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 18.5 3.5 21l1.2-4.5A8.5 8.5 0 0 1 3 11.5C3 6.8 7 3 12 3s9 3.8 9 8.5-4 8.5-9 8.5c-1.8 0-3.5-.5-5-1.5Z" /></svg>
+                </span>
+                <span>Talk to our team</span>
+              </button>
+              <div id="contact-panel" class="hidden w-full rounded-2xl border border-white/10 bg-white/5 p-6">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 class="text-lg font-bold">Talk to our team</h2>
+                    <p class="mt-1 text-sm text-slate-400">Send your question and we will get back to you.</p>
+                  </div>
+                  <button id="contact-close" type="button" class="rounded-lg px-2 py-1 text-sm text-slate-400 hover:bg-white/10 hover:text-white">Close</button>
+                </div>
+              <form id="public-contact" class="mt-5 grid gap-3 sm:grid-cols-2" hidden>
+                <input name="name" required minlength="2" maxlength="120" placeholder="Name" class="rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-400" />
+                <input name="company_name" maxlength="160" placeholder="Company name" class="rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-400" />
+                <input name="country_code" list="country-code-list" required placeholder="Country code" class="rounded-lg border border-white/10 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-400" />
+                <input name="mobile" required pattern="^[0-9][0-9]{6,14}$" placeholder="Mobile number" class="rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-400" />
+                <input name="country" list="country-list" required maxlength="100" placeholder="Country" class="rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-400 sm:col-span-2" />
+                <input name="email" required type="email" maxlength="255" placeholder="Email address" class="rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-400 sm:col-span-2" />
+                <select name="enquiry_type" required class="rounded-lg border border-white/10 bg-slate-900 px-3 py-2.5 text-sm text-white sm:col-span-2"><option value="">Enquiry type</option><option value="sales">Sales and pricing</option><option value="product">Product information</option><option value="support">Technical support</option><option value="partnership">Partnership</option><option value="other">Other</option></select>
+                <textarea name="query" required minlength="3" maxlength="5000" rows="4" placeholder="How can we help?" class="rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-slate-400 sm:col-span-2"></textarea>
+                {turnstileEnabled && turnstileSiteKey && <div class="sm:col-span-2" data-turnstile-sitekey={turnstileSiteKey} id="turnstile-widget"></div>}
+                <button class="rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-400 sm:col-span-2">Send message</button>
+                <p id="public-contact-message" class="min-h-5 text-sm text-slate-300 sm:col-span-2" role="status"></p>
+                <datalist id="country-code-list">
+                  <option value="+1">+1</option>
+                  <option value="+7">+7</option>
+                  <option value="+20">+20</option>
+                  <option value="+27">+27</option>
+                  <option value="+30">+30</option>
+                  <option value="+31">+31</option>
+                  <option value="+32">+32</option>
+                  <option value="+33">+33</option>
+                  <option value="+34">+34</option>
+                  <option value="+36">+36</option>
+                  <option value="+39">+39</option>
+                  <option value="+40">+40</option>
+                  <option value="+41">+41</option>
+                  <option value="+43">+43</option>
+                  <option value="+44">+44</option>
+                  <option value="+45">+45</option>
+                  <option value="+46">+46</option>
+                  <option value="+47">+47</option>
+                  <option value="+48">+48</option>
+                  <option value="+49">+49</option>
+                  <option value="+51">+51</option>
+                  <option value="+52">+52</option>
+                  <option value="+53">+53</option>
+                  <option value="+54">+54</option>
+                  <option value="+55">+55</option>
+                  <option value="+56">+56</option>
+                  <option value="+57">+57</option>
+                  <option value="+58">+58</option>
+                  <option value="+60">+60</option>
+                  <option value="+61">+61</option>
+                  <option value="+62">+62</option>
+                  <option value="+63">+63</option>
+                  <option value="+64">+64</option>
+                  <option value="+65">+65</option>
+                  <option value="+66">+66</option>
+                  <option value="+81">+81</option>
+                  <option value="+82">+82</option>
+                  <option value="+84">+84</option>
+                  <option value="+86">+86</option>
+                  <option value="+90">+90</option>
+                  <option value="+91">+91</option>
+                  <option value="+92">+92</option>
+                  <option value="+93">+93</option>
+                  <option value="+94">+94</option>
+                  <option value="+95">+95</option>
+                  <option value="+98">+98</option>
+                  <option value="+211">+211</option>
+                  <option value="+212">+212</option>
+                  <option value="+213">+213</option>
+                  <option value="+216">+216</option>
+                  <option value="+218">+218</option>
+                  <option value="+220">+220</option>
+                  <option value="+221">+221</option>
+                  <option value="+222">+222</option>
+                  <option value="+223">+223</option>
+                  <option value="+224">+224</option>
+                  <option value="+225">+225</option>
+                  <option value="+226">+226</option>
+                  <option value="+227">+227</option>
+                  <option value="+228">+228</option>
+                  <option value="+229">+229</option>
+                  <option value="+230">+230</option>
+                  <option value="+231">+231</option>
+                  <option value="+232">+232</option>
+                  <option value="+233">+233</option>
+                  <option value="+234">+234</option>
+                  <option value="+235">+235</option>
+                  <option value="+236">+236</option>
+                  <option value="+237">+237</option>
+                  <option value="+239">+239</option>
+                  <option value="+240">+240</option>
+                  <option value="+241">+241</option>
+                  <option value="+242">+242</option>
+                  <option value="+244">+244</option>
+                  <option value="+245">+245</option>
+                  <option value="+248">+248</option>
+                  <option value="+249">+249</option>
+                  <option value="+250">+250</option>
+                  <option value="+251">+251</option>
+                  <option value="+252">+252</option>
+                  <option value="+253">+253</option>
+                  <option value="+254">+254</option>
+                  <option value="+255">+255</option>
+                  <option value="+256">+256</option>
+                  <option value="+260">+260</option>
+                  <option value="+261">+261</option>
+                  <option value="+262">+262</option>
+                  <option value="+263">+263</option>
+                  <option value="+264">+264</option>
+                  <option value="+265">+265</option>
+                  <option value="+266">+266</option>
+                  <option value="+267">+267</option>
+                  <option value="+268">+268</option>
+                  <option value="+269">+269</option>
+                  <option value="+291">+291</option>
+                  <option value="+297">+297</option>
+                  <option value="+298">+298</option>
+                  <option value="+350">+350</option>
+                  <option value="+351">+351</option>
+                  <option value="+352">+352</option>
+                  <option value="+353">+353</option>
+                  <option value="+354">+354</option>
+                  <option value="+355">+355</option>
+                  <option value="+356">+356</option>
+                  <option value="+357">+357</option>
+                  <option value="+358">+358</option>
+                  <option value="+359">+359</option>
+                  <option value="+370">+370</option>
+                  <option value="+371">+371</option>
+                  <option value="+372">+372</option>
+                  <option value="+373">+373</option>
+                  <option value="+374">+374</option>
+                  <option value="+375">+375</option>
+                  <option value="+376">+376</option>
+                  <option value="+377">+377</option>
+                  <option value="+378">+378</option>
+                  <option value="+380">+380</option>
+                  <option value="+381">+381</option>
+                  <option value="+382">+382</option>
+                  <option value="+385">+385</option>
+                  <option value="+386">+386</option>
+                  <option value="+387">+387</option>
+                  <option value="+389">+389</option>
+                  <option value="+420">+420</option>
+                  <option value="+421">+421</option>
+                  <option value="+423">+423</option>
+                  <option value="+500">+500</option>
+                  <option value="+501">+501</option>
+                  <option value="+502">+502</option>
+                  <option value="+503">+503</option>
+                  <option value="+504">+504</option>
+                  <option value="+505">+505</option>
+                  <option value="+506">+506</option>
+                  <option value="+507">+507</option>
+                  <option value="+508">+508</option>
+                  <option value="+509">+509</option>
+                  <option value="+590">+590</option>
+                  <option value="+591">+591</option>
+                  <option value="+592">+592</option>
+                  <option value="+593">+593</option>
+                  <option value="+595">+595</option>
+                  <option value="+597">+597</option>
+                  <option value="+598">+598</option>
+                  <option value="+599">+599</option>
+                  <option value="+670">+670</option>
+                  <option value="+672">+672</option>
+                  <option value="+673">+673</option>
+                  <option value="+675">+675</option>
+                  <option value="+676">+676</option>
+                  <option value="+677">+677</option>
+                  <option value="+678">+678</option>
+                  <option value="+679">+679</option>
+                  <option value="+680">+680</option>
+                  <option value="+681">+681</option>
+                  <option value="+682">+682</option>
+                  <option value="+683">+683</option>
+                  <option value="+685">+685</option>
+                  <option value="+686">+686</option>
+                  <option value="+687">+687</option>
+                  <option value="+688">+688</option>
+                  <option value="+689">+689</option>
+                  <option value="+690">+690</option>
+                  <option value="+691">+691</option>
+                  <option value="+692">+692</option>
+                  <option value="+850">+850</option>
+                  <option value="+852">+852</option>
+                  <option value="+853">+853</option>
+                  <option value="+855">+855</option>
+                  <option value="+856">+856</option>
+                  <option value="+880">+880</option>
+                  <option value="+886">+886</option>
+                  <option value="+960">+960</option>
+                  <option value="+961">+961</option>
+                  <option value="+962">+962</option>
+                  <option value="+963">+963</option>
+                  <option value="+964">+964</option>
+                  <option value="+965">+965</option>
+                  <option value="+966">+966</option>
+                  <option value="+967">+967</option>
+                  <option value="+968">+968</option>
+                  <option value="+971">+971</option>
+                  <option value="+972">+972</option>
+                  <option value="+973">+973</option>
+                  <option value="+974">+974</option>
+                  <option value="+975">+975</option>
+                  <option value="+976">+976</option>
+                  <option value="+977">+977</option>
+                  <option value="+992">+992</option>
+                  <option value="+993">+993</option>
+                  <option value="+994">+994</option>
+                  <option value="+995">+995</option>
+                  <option value="+996">+996</option>
+                  <option value="+998">+998</option>
+                </datalist>
+                <datalist id="country-list">
+                  <option value="Afghanistan"></option>
+                  <option value="Albania"></option>
+                  <option value="Algeria"></option>
+                  <option value="Andorra"></option>
+                  <option value="Angola"></option>
+                  <option value="Argentina"></option>
+                  <option value="Armenia"></option>
+                  <option value="Australia"></option>
+                  <option value="Austria"></option>
+                  <option value="Azerbaijan"></option>
+                  <option value="Bahrain"></option>
+                  <option value="Bangladesh"></option>
+                  <option value="Belarus"></option>
+                  <option value="Belgium"></option>
+                  <option value="Belize"></option>
+                  <option value="Benin"></option>
+                  <option value="Bolivia"></option>
+                  <option value="Botswana"></option>
+                  <option value="Brazil"></option>
+                  <option value="Bulgaria"></option>
+                  <option value="Burkina Faso"></option>
+                  <option value="Cambodia"></option>
+                  <option value="Cameroon"></option>
+                  <option value="Canada"></option>
+                  <option value="Chile"></option>
+                  <option value="China"></option>
+                  <option value="Colombia"></option>
+                  <option value="Croatia"></option>
+                  <option value="Cyprus"></option>
+                  <option value="Czech Republic"></option>
+                  <option value="Denmark"></option>
+                  <option value="Dominican Republic"></option>
+                  <option value="Ecuador"></option>
+                  <option value="Egypt"></option>
+                  <option value="Estonia"></option>
+                  <option value="Ethiopia"></option>
+                  <option value="Finland"></option>
+                  <option value="France"></option>
+                  <option value="Germany"></option>
+                  <option value="Ghana"></option>
+                  <option value="Greece"></option>
+                  <option value="Guatemala"></option>
+                  <option value="Hong Kong"></option>
+                  <option value="Hungary"></option>
+                  <option value="India"></option>
+                  <option value="Indonesia"></option>
+                  <option value="Ireland"></option>
+                  <option value="Israel"></option>
+                  <option value="Italy"></option>
+                  <option value="Japan"></option>
+                  <option value="Kenya"></option>
+                  <option value="Latvia"></option>
+                  <option value="Lebanon"></option>
+                  <option value="Luxembourg"></option>
+                  <option value="Malaysia"></option>
+                  <option value="Mexico"></option>
+                  <option value="Morocco"></option>
+                  <option value="Netherlands"></option>
+                  <option value="New Zealand"></option>
+                  <option value="Nigeria"></option>
+                  <option value="Norway"></option>
+                  <option value="Pakistan"></option>
+                  <option value="Peru"></option>
+                  <option value="Philippines"></option>
+                  <option value="Poland"></option>
+                  <option value="Portugal"></option>
+                  <option value="Romania"></option>
+                  <option value="Saudi Arabia"></option>
+                  <option value="Senegal"></option>
+                  <option value="Singapore"></option>
+                  <option value="Slovakia"></option>
+                  <option value="South Africa"></option>
+                  <option value="South Korea"></option>
+                  <option value="Spain"></option>
+                  <option value="Sri Lanka"></option>
+                  <option value="Sweden"></option>
+                  <option value="Switzerland"></option>
+                  <option value="Taiwan"></option>
+                  <option value="Thailand"></option>
+                  <option value="Tunisia"></option>
+                  <option value="Turkey"></option>
+                  <option value="Uganda"></option>
+                  <option value="Ukraine"></option>
+                  <option value="United Arab Emirates"></option>
+                  <option value="United Kingdom"></option>
+                  <option value="United States"></option>
+                  <option value="Vietnam"></option>
+                  <option value="Zimbabwe"></option>
+                </datalist>
+              </form>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </>
     )}
   </body>
 
@@ -235,6 +633,77 @@ const isActive = (href: string) =>
 
   {appShell && (
     <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+      async function loadCurrentUser() {
+        try {
+          const [response, projectsResponse] = await Promise.all([
+            fetch(`${apiBaseUrl}/v1/me`, { credentials: "include" }),
+            fetch(`${apiBaseUrl}/v1/projects`, { credentials: "include" }),
+          ]);
+          if (response.status === 401 || projectsResponse.status === 401) {
+            window.location.href = "/login";
+            return;
+          }
+          if (!response.ok || !projectsResponse.ok) return;
+
+          const data = await response.json();
+          const projectData = await projectsResponse.json();
+          const user = data.user || {};
+          const tenant = data.tenant || {};
+          const role = data.role || "member";
+          const projects = role === "member"
+            ? (projectData.projects || []).filter((project) => project.environment !== "production")
+            : (projectData.projects || []);
+          const priority = { development: 0, staging: 1, production: 2 };
+          const routeProjectId = new URLSearchParams(window.location.search).get("projectId") || window.location.pathname.match(/\/projects\/([^/]+)/)?.[1];
+          const storedProjectId = window.sessionStorage.getItem("dlogicai_active_project");
+          const activeProject = projects.find((project) => project.id === routeProjectId)
+            || projects.find((project) => project.id === storedProjectId)
+            || [...projects].sort((a, b) => (priority[a.environment] ?? 99) - (priority[b.environment] ?? 99))[0];
+          const currentEnvironment = activeProject?.environment;
+          const projectList = document.querySelector("#desktop-project-list");
+          if (projectList) {
+            const environmentProjects = projects.filter((project) => project.environment === currentEnvironment);
+            projectList.replaceChildren(...environmentProjects.map((project) => {
+              const link = document.createElement("a");
+              link.href = `/dashboard/projects/${encodeURIComponent(project.id)}`;
+              link.textContent = `${project.name} · ${project.environment}`;
+              link.className = `block truncate rounded px-2 py-1 text-xs ${activeProject?.id === project.id ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`;
+              return link;
+            }));
+          }
+          const breadcrumb = activeProject
+            ? `<span class="font-semibold text-slate-800">Projects</span><span aria-hidden="true">/</span><span class="truncate font-semibold text-slate-900">${activeProject.name}</span><span aria-hidden="true">/</span><span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold capitalize text-blue-700">${activeProject.environment}</span>`
+            : `<span class="font-semibold text-slate-800">Projects</span>`;
+          document.querySelector("#desktop-project-breadcrumb").innerHTML = breadcrumb;
+          document.querySelector("#mobile-project-breadcrumb").innerHTML = breadcrumb;
+          document.querySelector("#mobile-user-name").textContent = user.name || user.email || "User";
+          document.querySelector("#mobile-user-role").textContent = role;
+          document.querySelector("#mobile-tenant-name").textContent = tenant.name || "Workspace";
+          document.querySelector("#top-user-name").textContent = user.name || user.email || "User";
+          document.querySelector("#top-user-reference").textContent = `${user.email || ""} · ${role}`;
+          document.querySelector("#top-user-initials").textContent = (user.name || user.email || "U").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+          document.querySelector("#profile-name").textContent = user.name || user.email || "User";
+          document.querySelector("#profile-email").textContent = user.email || "";
+          document.querySelector("#profile-workspace").textContent = tenant.name || "Workspace";
+          document.querySelector("#profile-privileges").textContent = role === "owner" || role === "admin" ? `${role}: manage members, billing, secrets, environments, services, and logs.` : "member: manage development/staging environments, services, knowledge, conversations, and logs.";
+          document.querySelector("#mobile-profile-privileges").textContent = role === "owner" || role === "admin" ? `${role}: full workspace administration.` : "member: development/staging environments, services, knowledge, conversations, and logs.";
+          const environments = [...new Set(projects.map((project) => project.environment))].sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));
+          const environmentOptions = document.querySelectorAll("#desktop-environment, #mobile-environment");
+          environmentOptions.forEach((select) => {
+            select.replaceChildren(...environments.map((environment) => { const option = document.createElement("option"); option.value = environment; option.textContent = environment; return option; }));
+            if (activeProject) select.value = activeProject.environment;
+            select.addEventListener("change", () => {
+              const selectedProject = projects.find((project) => project.environment === select.value);
+              if (!selectedProject) return;
+              window.sessionStorage.setItem("dlogicai_active_project", selectedProject.id);
+              window.location.href = `/dashboard/projects/${encodeURIComponent(selectedProject.id)}`;
+            });
+          });
+        } catch {
+          document.querySelector("#mobile-user-name").textContent = "User";
+        }
+      }
+
       async function logout() {
         await fetch(`${apiBaseUrl}/v1/auth/logout`, {
           method: "POST",
@@ -252,6 +721,130 @@ const isActive = (href: string) =>
       document
         .querySelector("#mobile-logout")
         ?.addEventListener("click", logout);
+
+      function toggleProfileMenu(toggleId, menuId) {
+        const toggle = document.querySelector(toggleId);
+        const menu = document.querySelector(menuId);
+        toggle?.addEventListener("click", () => {
+          const open = menu.classList.toggle("hidden");
+          toggle.setAttribute("aria-expanded", String(!open));
+        });
+      }
+
+      document.querySelector("#profile-logout")?.addEventListener("click", logout);
+      document.querySelector("#mobile-profile-logout")?.addEventListener("click", logout);
+      toggleProfileMenu("#profile-toggle", "#profile-menu");
+      toggleProfileMenu("#mobile-profile-toggle", "#mobile-profile-menu");
+
+      loadCurrentUser();
+    </script>
+  )}
+
+  {!appShell && (
+    <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL, visitorCountryCode: Astro.request.headers.get("cf-ipcountry")?.toUpperCase() || "" }}>
+      function getDefaultCountryName(preferredCountryCode) {
+        const regionCode = preferredCountryCode || ((navigator.languages && navigator.languages[0]) || navigator.language || "en-US").split("-").pop()?.toUpperCase();
+
+        if (!regionCode || !/^[A-Z]{2}$/.test(regionCode)) {
+          return "";
+        }
+
+        try {
+          return new Intl.DisplayNames(["en"], { type: "region" }).of(regionCode) || "";
+        } catch {
+          return "";
+        }
+      }
+
+      function getDefaultCountryCode(countryName) {
+        const dialCodes = {
+          "United States": "+1",
+          "United Kingdom": "+44",
+          "India": "+91",
+          "Canada": "+1",
+          "Australia": "+61",
+          "Singapore": "+65",
+          "United Arab Emirates": "+971",
+          "Germany": "+49",
+          "France": "+33",
+          "Spain": "+34",
+          "Italy": "+39",
+          "Netherlands": "+31",
+          "Belgium": "+32",
+          "Switzerland": "+41",
+          "Sweden": "+46",
+          "Norway": "+47",
+          "Denmark": "+45",
+          "Finland": "+358",
+          "South Africa": "+27",
+          "Brazil": "+55",
+          "Mexico": "+52",
+          "Argentina": "+54",
+          "Japan": "+81",
+          "South Korea": "+82",
+          "China": "+86",
+          "Hong Kong": "+852",
+          "Taiwan": "+886",
+          "Thailand": "+66",
+          "Vietnam": "+84",
+          "Indonesia": "+62",
+          "Malaysia": "+60",
+          "Philippines": "+63",
+          "Pakistan": "+92",
+          "Bangladesh": "+880",
+          "Sri Lanka": "+94",
+          "Nigeria": "+234",
+          "Kenya": "+254",
+          "Egypt": "+20",
+          "Saudi Arabia": "+966",
+        };
+
+        return dialCodes[countryName] || "";
+      }
+
+      const defaultCountry = getDefaultCountryName(visitorCountryCode);
+      const countryField = document.querySelector("#public-contact input[name='country']");
+      if (countryField && !countryField.value && defaultCountry) {
+        countryField.value = defaultCountry;
+      }
+
+      const countryCodeField = document.querySelector("#public-contact input[name='country_code']");
+      const defaultCountryCode = defaultCountry ? getDefaultCountryCode(defaultCountry) : "";
+      if (countryCodeField && !countryCodeField.value && defaultCountryCode) {
+        countryCodeField.value = defaultCountryCode;
+      }
+
+      const contactForm = document.querySelector("#public-contact");
+      const contactMessage = document.querySelector("#public-contact-message");
+      const contactToggle = document.querySelector("#contact-toggle");
+      const contactClose = document.querySelector("#contact-close");
+      const contactPanel = document.querySelector("#contact-panel");
+      function setContactOpen(isOpen) {
+        contactPanel?.classList.toggle("hidden", !isOpen);
+        contactForm.hidden = !isOpen;
+        contactToggle.hidden = isOpen;
+        contactToggle.setAttribute("aria-expanded", String(isOpen));
+        if (isOpen) contactPanel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      contactToggle?.addEventListener("click", () => setContactOpen(true));
+      contactClose?.addEventListener("click", () => setContactOpen(false));
+      const turnstileSiteKey = document.querySelector("#turnstile-widget")?.dataset.sitekey || "";
+      let turnstileToken = "";
+      if (turnstileSiteKey) {
+        const script = document.createElement("script");
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+        script.onload = () => window.turnstile?.render("#turnstile-widget", { sitekey: turnstileSiteKey, callback: (token) => { turnstileToken = token; } });
+        document.head.appendChild(script);
+      }
+      contactForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        const response = await fetch(`${apiBaseUrl}/v1/public/contact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), company_name: form.get("company_name"), country_code: form.get("country_code"), country: form.get("country"), mobile: form.get("mobile"), email: form.get("email"), enquiry_type: form.get("enquiry_type"), query: form.get("query"), turnstile_token: turnstileToken }) });
+        const data = await response.json().catch(() => ({}));
+        contactMessage.textContent = response.ok ? "Thanks. Your message has been received." : data?.error?.message || "Unable to send your message.";
+        contactMessage.className = `min-h-5 text-sm sm:col-span-2 ${response.ok ? "text-emerald-300" : "text-red-300"}`;
+        if (response.ok) contactForm.reset();
+      });
     </script>
   )}
 </html>

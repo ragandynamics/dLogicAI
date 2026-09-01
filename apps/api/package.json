@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "node scripts/apply-d1-migrations.mjs local && wrangler dev",
     "build": "tsc --noEmit",
+    "test": "vitest run",
     "deploy": "wrangler deploy",
-    "db:migrate:local": "wrangler d1 migrations apply dialogicai-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply dialogicai-db --remote"
+    "db:migrate:local": "node scripts/apply-d1-migrations.mjs local",
+    "db:migrate:remote": "node scripts/apply-d1-migrations.mjs remote"
   },
   "dependencies": {
     "hono": "^4.13.3",
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250718.0",
     "typescript": "^5.9.2",
-    "wrangler": "^4.36.0"
+    "vitest": "^4.1.0",
+    "wrangler": "^4.127.0"
   }
 }

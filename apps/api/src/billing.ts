@@ -29,6 +29,7 @@ const estimateSchema = z.object({
   forecast: z.record(z.string(), z.number().finite().min(0)).default({}),
   addons: z.record(z.string(), z.number().finite().min(0)).default({}),
   connectors: z.record(z.string(), z.number().finite().min(0)).default({}),
+  byok: z.boolean().default(false),
   months: z.number().int().min(1).max(12).default(1),
 });
 
@@ -95,10 +96,12 @@ async function verifyStripeSignature(rawBody: string, signature: string, secret:
 export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.get("/v1/plans", async (c: any) => {
     const plans = await c.env.DB.prepare(`
-      SELECT p.id, p.name, p.monthly_price_cents, p.included_requests,
+      SELECT p.id, p.name, p.monthly_price_cents, p.byok_monthly_price_cents, p.included_requests,
              p.included_ai_credit_micros, p.max_projects, p.max_api_keys,
               p.max_team_members, p.max_knowledge_bases, p.max_documents,
-              p.max_storage_bytes, p.max_vector_chunks, p.features_json
+              p.max_storage_bytes, p.max_vector_chunks, p.byok_enabled,
+              p.max_byok_credentials, p.byok_request_fee_micros,
+              p.byok_discount_percent, p.features_json
       FROM plans p ORDER BY p.monthly_price_cents ASC
     `).all();
     return c.json({ plans: plans.results });
@@ -106,10 +109,12 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
 
   app.get("/v1/billing/catalog", async (c: any) => {
     const plans = await c.env.DB.prepare(`
-      SELECT p.id, p.name, p.monthly_price_cents, p.included_requests,
+      SELECT p.id, p.name, p.monthly_price_cents, p.byok_monthly_price_cents, p.included_requests,
              p.included_ai_credit_micros, p.max_projects, p.max_api_keys,
               p.max_team_members, p.max_knowledge_bases, p.max_documents,
-              p.max_storage_bytes, p.max_vector_chunks, p.features_json
+              p.max_storage_bytes, p.max_vector_chunks, p.byok_enabled,
+              p.max_byok_credentials, p.byok_request_fee_micros,
+              p.byok_discount_percent, p.features_json
       FROM plans p ORDER BY p.monthly_price_cents ASC
     `).all();
     const addons = await c.env.DB.prepare(`
@@ -131,9 +136,12 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
               pending.name AS pending_plan_name, s.current_period_start,
              s.current_period_end, s.external_customer_id,
              s.external_subscription_id, p.name AS plan_name,
-            p.monthly_price_cents, p.included_requests, p.max_projects,
+            p.monthly_price_cents, p.byok_monthly_price_cents, p.included_requests, p.max_projects,
              p.max_api_keys, p.max_knowledge_bases, p.max_documents,
-             p.max_storage_bytes, p.max_vector_chunks
+             p.max_storage_bytes, p.max_vector_chunks, p.byok_enabled,
+             p.max_byok_credentials, p.byok_request_fee_micros,
+             p.byok_discount_percent, s.byok_discount_pending,
+             s.byok_discount_effective_at, s.byok_discount_applied_at
       FROM subscriptions s
       JOIN plans p ON p.id = s.plan_id
       LEFT JOIN plans pending ON pending.id = s.pending_plan_id
@@ -142,7 +150,13 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     `).bind(auth.tenantId).first();
     if (!subscription) return deps.jsonError(c, "SUBSCRIPTION_NOT_FOUND", "No subscription is configured for this tenant.", 404);
 
-    return c.json({ subscription });
+    const memberVisibleSubscription = { ...subscription } as Record<string, unknown>;
+    if (!isBillingAdmin(auth)) {
+      delete memberVisibleSubscription.external_customer_id;
+      delete memberVisibleSubscription.external_subscription_id;
+    }
+
+    return c.json({ subscription: memberVisibleSubscription });
   });
 
   app.post("/v1/billing/subscription/change", async (c: any) => {
@@ -186,11 +200,13 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.post("/v1/billing/estimate", async (c: any) => {
     const parsed = estimateSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return deps.jsonError(c, "INVALID_REQUEST", "Invalid estimator request.", 400);
-    const { plan_id, forecast, addons, connectors, months } = parsed.data;
+    const { plan_id, forecast, addons, connectors, byok: byokRequested, months } = parsed.data;
     const plan = await c.env.DB.prepare(`SELECT * FROM plans WHERE id=? LIMIT 1`).bind(plan_id).first();
     if (!plan) return deps.jsonError(c, "PLAN_NOT_FOUND", "The selected plan does not exist.", 404);
 
-    const base = Number(plan.monthly_price_cents || 0) * 10000;
+    const byokActive = byokRequested && Number(plan.byok_enabled);
+    const selectedPriceCents = byokActive ? Number(plan.byok_monthly_price_cents || 0) : Number(plan.monthly_price_cents || 0);
+    const base = Math.round(selectedPriceCents * 10000);
     const items: any[] = [{ item_type: "subscription", meter_key: null, description: plan.name, quantity: 1, unit_price_micros: base, amount_micros: base }];
 
     for (const [itemId, qty] of Object.entries(addons)) {
@@ -227,7 +243,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     }
 
     const monthlyMicros = items.reduce((sum, x) => sum + Number(x.amount_micros || 0), 0);
-    return c.json({ currency: "usd", months, monthly: { subtotal_micros: monthlyMicros, subtotal_cents: Math.ceil(monthlyMicros / 10000), items }, forecast: { plan_id, forecast, addons, connectors } });
+    return c.json({ currency: "usd", months, monthly: { subtotal_micros: monthlyMicros, subtotal_cents: Math.ceil(monthlyMicros / 10000), items }, byok: { requested: byokRequested, fixed_monthly_price_cents: byokActive ? selectedPriceCents : null }, forecast: { plan_id, forecast, addons, connectors } });
   });
 
   app.post("/v1/billing/connectors/:connectorId/usage", async (c: any) => {
@@ -274,7 +290,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     if (!planId) return deps.jsonError(c, "INVALID_REQUEST", "plan_id is required.", 400);
     if (trial && planId !== "plan_developer") return deps.jsonError(c, "INVALID_TRIAL_PLAN", "The introductory trial is available on the Developer plan only.", 400);
     const plan = await c.env.DB.prepare(`
-      SELECT p.id, p.monthly_price_cents,
+      SELECT p.id, p.monthly_price_cents, p.byok_monthly_price_cents, p.byok_stripe_price_id, p.byok_enabled,
              COALESCE(
                (SELECT stripe_price_id FROM billing_plan_versions
                 WHERE plan_id = p.id AND retired_at IS NULL
@@ -285,7 +301,12 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     `).bind(planId).first();
     if (!plan) return deps.jsonError(c, "PLAN_NOT_FOUND", "The selected plan does not exist.", 404);
     if (Number(plan.monthly_price_cents) <= 0) return deps.jsonError(c, "FREE_PLAN_CHECKOUT", "Free plans do not require Stripe Checkout.", 409);
-    if (!plan.stripe_price_id) return deps.jsonError(c, "STRIPE_PRICE_NOT_CONFIGURED", "No Stripe price is configured for this plan.", 409);
+    const tenantByok = await c.env.DB.prepare(
+      `SELECT id FROM tenant_llm_credentials WHERE tenant_id = ? AND status = 'active' LIMIT 1`
+    ).bind(auth.tenantId).first();
+    const byokActive = Boolean(tenantByok && Number(plan.byok_enabled));
+    const checkoutPriceId = byokActive ? plan.byok_stripe_price_id : plan.stripe_price_id;
+    if (!checkoutPriceId) return deps.jsonError(c, "STRIPE_PRICE_NOT_CONFIGURED", `No ${byokActive ? "BYOK " : ""}Stripe price is configured for this plan.`, 409);
     const tenant = await c.env.DB.prepare(`SELECT id,name,billing_email,external_customer_id FROM tenants WHERE id=?`).bind(auth.tenantId).first();
     let customerId = tenant?.external_customer_id;
     if (!customerId) {
@@ -301,12 +322,13 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     const checkoutValues: Record<string, string> = {
       mode: "subscription",
       customer: customerId,
-      "line_items[0][price]": String(plan.stripe_price_id),
+      "line_items[0][price]": String(checkoutPriceId),
       "line_items[0][quantity]": "1",
       success_url: successUrl,
       cancel_url: cancelUrl,
       "metadata[tenant_id]": auth.tenantId,
       "metadata[plan_id]": planId,
+      "metadata[byok]": byokActive ? "true" : "false",
     };
     if (trial) {
       checkoutValues["subscription_data[trial_period_days]"] = "7";
@@ -339,6 +361,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.post("/v1/billing/stripe/checkout/confirm", async (c: any) => {
     const auth = await deps.requireDashboard(c);
     if (!auth) return deps.jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+    if (!isBillingAdmin(auth)) return deps.jsonError(c, "FORBIDDEN", "Owner or admin access is required for billing changes.", 403);
     if (!c.env.STRIPE_SECRET_KEY) return deps.jsonError(c, "STRIPE_NOT_CONFIGURED", "Stripe checkout is not configured for this environment.", 503);
     const sessionId = String((await c.req.json().catch(() => ({}))).session_id || "").trim();
     if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return deps.jsonError(c, "INVALID_REQUEST", "A valid Checkout session ID is required.", 400);

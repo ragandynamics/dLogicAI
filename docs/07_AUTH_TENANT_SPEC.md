@@ -10,3 +10,5 @@ A user may belong to multiple organizations. The active organization must be exp
 
 ## Roles
 At minimum support organization-level owner/admin/member semantics, with extensibility for project-level roles.
+
+Tenant owners and admins may add existing users to their tenant or create pending invitations for new users. Invitation delivery and acceptance are separate workflow steps.

@@ -1,0 +1,76 @@
+---
+import AppLayout from "../../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../../types/env";
+
+const { projectId } = Astro.params;
+---
+
+<AppLayout title="Project Workspace" appShell={true}>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <a href="/dashboard/projects" class="text-sm font-medium text-blue-600 hover:text-blue-700">← Projects</a>
+      <h1 id="project-name" class="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Loading project…</h1>
+      <p id="project-copy" class="mt-1 text-sm leading-6 text-slate-600">Project-level workspace for configuration, testing, and release readiness.</p>
+    </div>
+    <span id="environment" class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">Loading</span>
+  </div>
+
+  <section class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Chat Services</p><p id="service-count" class="mt-2 text-2xl font-bold text-slate-950">—</p></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Knowledge Bases</p><p id="knowledge-count" class="mt-2 text-2xl font-bold text-slate-950">—</p></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Channels</p><p id="channel-count" class="mt-2 text-2xl font-bold text-slate-950">—</p></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Release status</p><p class="mt-2 text-sm font-semibold text-amber-700">Promotion not configured</p></div>
+  </section>
+
+  <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-lg font-bold text-slate-950">Project components</h2><p class="mt-1 text-sm text-slate-500">Manage the resources that move together through environments.</p></div><a id="test-link" href="/dashboard/playground" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Test this environment</a></div>
+    <div id="components" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+  </section>
+
+  <section class="mt-6 grid gap-6 lg:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold text-slate-950">Knowledge bases</h2><p class="mt-1 text-sm text-slate-500">Knowledge configured for this project.</p></div><a id="knowledge-link" href="#" class="text-sm font-semibold text-blue-600">Manage</a></div>
+      <div id="project-knowledge" class="mt-4 space-y-2"></div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold text-slate-950">Dialog flows</h2><p class="mt-1 text-sm text-slate-500">Flows configured for this project’s Chat Services.</p></div><a id="flows-link" href="#" class="text-sm font-semibold text-blue-600">Manage</a></div>
+      <div id="project-flows" class="mt-4 space-y-2"></div>
+    </div>
+  </section>
+
+  <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-lg font-bold text-slate-950">Environment lifecycle</h2><p class="mt-1 text-sm text-slate-500">Development is the working area. Staging and production promotion will use project releases once CI/CD is enabled.</p></div><span class="text-xs font-semibold text-slate-400">Project-level CI/CD</span></div>
+    <div class="mt-5 grid gap-3 md:grid-cols-3"><div class="rounded-xl border border-blue-200 bg-blue-50 p-4"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Development</p><p class="mt-2 text-sm font-semibold text-slate-900" id="development-state">Current workspace</p><p class="mt-1 text-xs text-slate-600">Edit, configure, and test dialog flows.</p></div><div class="rounded-xl border border-slate-200 bg-slate-50 p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Staging</p><p class="mt-2 text-sm font-semibold text-slate-900">Release target</p><p class="mt-1 text-xs text-slate-500">Scenario verification will run here.</p></div><div class="rounded-xl border border-slate-200 bg-slate-50 p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Production</p><p class="mt-2 text-sm font-semibold text-slate-900">Approval required</p><p class="mt-1 text-xs text-slate-500">Owner/admin promotion and rollback.</p></div></div>
+  </section>
+
+  <p id="message" class="mt-5 min-h-5 text-sm" role="status"></p>
+
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL, projectId }}>
+    const components = document.querySelector("#components");
+    const message = document.querySelector("#message");
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[character]));
+    async function get(path) { const response = await fetch(`${apiBaseUrl}${path}`, { credentials: "include" }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data?.error?.message || "Unable to load project workspace."); return data; }
+    async function load() { try { const projects = (await get("/v1/projects")).projects || []; const project = projects.find((item) => item.id === projectId); if (!project) throw new Error("Project not found."); document.querySelector("#project-name").textContent = project.name; document.querySelector("#environment").textContent = project.environment; document.querySelector("#project-copy").textContent = `${project.environment} environment · Project ${project.id}`; document.querySelector("#development-state").textContent = project.environment === "development" ? "Current workspace" : "Available project environment"; const serviceData = await get(`/v1/projects/${encodeURIComponent(projectId)}/chat-services`); const services = serviceData.chat_services || []; const knowledgeData = await get(`/v1/projects/${encodeURIComponent(projectId)}/knowledge-bases`); const knowledge = knowledgeData.knowledge_bases || []; const channelCounts = await Promise.all(services.map(async (service) => (await get(`/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(service.id)}/channel-installations`)).installations?.length || 0)); document.querySelector("#service-count").textContent = String(services.length); document.querySelector("#knowledge-count").textContent = String(knowledge.length); document.querySelector("#channel-count").textContent = String(channelCounts.reduce((sum, count) => sum + count, 0)); document.querySelector("#test-link").href = `/dashboard/playground?projectId=${encodeURIComponent(projectId)}`; components.innerHTML = `<a href="/dashboard/services" class="rounded-xl border border-slate-200 p-4 hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Services</p><p class="mt-2 font-semibold text-slate-900">${services.length} configured</p><p class="mt-1 text-xs text-slate-500">Business functions and provider policy</p></a><a href="/dashboard/dialog-flows" class="rounded-xl border border-slate-200 p-4 hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Dialog Flows</p><p class="mt-2 font-semibold text-slate-900">Visual designer</p><p class="mt-1 text-xs text-slate-500">Test milestones and expected outcomes</p></a><a href="/dashboard/knowledge-bases" class="rounded-xl border border-slate-200 p-4 hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Knowledge</p><p class="mt-2 font-semibold text-slate-900">${knowledge.length} available</p><p class="mt-1 text-xs text-slate-500">Documents and retrieval sources</p></a><a href="/dashboard/channel-installations" class="rounded-xl border border-slate-200 p-4 hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Channels</p><p class="mt-2 font-semibold text-slate-900">${channelCounts.reduce((sum, count) => sum + count, 0)} installed</p><p class="mt-1 text-xs text-slate-500">Telegram, WhatsApp, and Web Chat</p></a><a href="/dashboard/api-keys" class="rounded-xl border border-slate-200 p-4 hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">API Keys</p><p class="mt-2 font-semibold text-slate-900">Environment access</p><p class="mt-1 text-xs text-slate-500">Use keys scoped to this project</p></a><div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Deployments</p><p class="mt-2 font-semibold text-slate-900">Coming next</p><p class="mt-1 text-xs text-slate-500">Release, verify, promote, and rollback</p></div>`; } catch (error) { message.textContent = error.message; message.className = "mt-5 min-h-5 text-sm text-red-600"; } }
+    load();
+  </script>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL, projectId }}>
+    (async () => {
+      const escape = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[character]));
+      async function get(path) { const response = await fetch(`${apiBaseUrl}${path}`, { credentials: "include" }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data?.error?.message || "Unable to load project configuration."); return data; }
+      try {
+        const serviceData = await get(`/v1/projects/${encodeURIComponent(projectId)}/chat-services`);
+        const services = serviceData.chat_services || [];
+        const knowledgeData = await get(`/v1/projects/${encodeURIComponent(projectId)}/knowledge-bases`);
+        const knowledge = knowledgeData.knowledge_bases || [];
+        document.querySelector("#knowledge-link").href = `/dashboard/knowledge-bases?projectId=${encodeURIComponent(projectId)}`;
+        document.querySelector("#flows-link").href = `/dashboard/dialog-flows?projectId=${encodeURIComponent(projectId)}`;
+        document.querySelector("#project-knowledge").innerHTML = knowledge.length ? knowledge.map((base) => `<a href="/dashboard/knowledge-bases?projectId=${encodeURIComponent(projectId)}" class="block rounded-lg bg-slate-50 p-3 hover:bg-blue-50"><p class="text-sm font-semibold text-slate-900">${escape(base.name)}</p><p class="mt-1 text-xs text-slate-500">${escape(base.status)}</p></a>`).join("") : `<p class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">No knowledge bases configured.</p>`;
+        const flowItems = (await Promise.all(services.map(async (service) => ({ service, flow: (await get(`/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(service.id)}/dialog-flow`)).dialog_flow })))).filter((item) => item.flow);
+        document.querySelector("#project-flows").innerHTML = flowItems.length ? flowItems.map(({ service, flow }) => `<a href="/dashboard/dialog-flows/${encodeURIComponent(service.id)}?projectId=${encodeURIComponent(projectId)}" class="block rounded-lg bg-slate-50 p-3 hover:bg-blue-50"><p class="text-sm font-semibold text-slate-900">${escape(service.name)}</p><p class="mt-1 text-xs text-slate-500">${escape(flow.name)} · Version ${escape(flow.version)}</p></a>`).join("") : `<p class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">No dialog flows configured.</p>`;
+      } catch (error) {
+        document.querySelector("#message").textContent = error.message;
+        document.querySelector("#message").className = "mt-5 min-h-5 text-sm text-red-600";
+      }
+    })();
+  </script>
+</AppLayout>

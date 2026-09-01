@@ -36,6 +36,7 @@ import { API_BASE_URL } from "../../types/env";
         : `$${(Number(cents) / 100).toFixed(0)}/month`;
 
       const limit = (value, suffix = "") => Number(value || 0) > 0 ? `${Number(value).toLocaleString()}${suffix}` : "Not included";
+      const byokFee = (micros) => `$${(Number(micros || 0) / 1000000).toFixed(5)}/request`;
 
     async function api(path, options = {}) {
       const response = await fetch(`${apiBaseUrl}/v1${path}`, {
@@ -97,6 +98,10 @@ import { API_BASE_URL } from "../../types/env";
                   <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Projects</p>
                   <p class="mt-1 font-semibold text-slate-900">${s.max_projects ?? "—"}</p>
                 </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">BYOK offer</p>
+                  <p class="mt-1 font-semibold text-slate-900">${Number(s.byok_enabled) && Number(s.byok_monthly_price_cents) > 0 ? `${money(s.byok_monthly_price_cents)}/month fixed fee` : "Not included"}</p>
+                </div>
               </div>
 
               <div class="mt-6 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
@@ -132,6 +137,7 @@ import { API_BASE_URL } from "../../types/env";
             <p class="mt-2 text-2xl font-extrabold text-slate-950">${money(plan.monthly_price_cents)}</p>
             <p class="mt-3 text-sm text-slate-500">${Number(plan.included_requests || 0).toLocaleString()} requests · ${plan.max_projects} projects · ${plan.max_api_keys} API keys</p>
             <p class="mt-3 text-sm text-slate-500">${limit(plan.max_knowledge_bases)} knowledge bases · ${limit(plan.max_documents)} documents · ${limit(Number(plan.max_storage_bytes || 0) / (1024 * 1024 * 1024), " GB")} RAG storage</p>
+            <p class="mt-3 text-sm text-slate-500">${Number(plan.byok_enabled) ? `BYOK · ${money(plan.byok_monthly_price_cents)}/month · ${byokFee(plan.byok_request_fee_micros)} platform fee` : "BYOK not included"}</p>
             <button
               data-plan="${plan.id}"
               ${isDisabled ? "disabled" : ""}

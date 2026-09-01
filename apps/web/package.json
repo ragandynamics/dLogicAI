@@ -11,11 +11,17 @@
   "dependencies": {
     "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "latest",
+    "@astrojs/react": "^6.0.4",
     "@dlogicai/shared": "workspace:*",
-    "astro": "latest"
+    "@xyflow/react": "^12.11.5",
+    "astro": "latest",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "latest",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
     "tailwindcss": "latest",
     "typescript": "^6.0.3"
   }
