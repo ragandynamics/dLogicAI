@@ -3,23 +3,27 @@ import AppLayout from "../../layouts/AppLayout.astro";
 import { API_BASE_URL } from "../../types/env";
 ---
 
-<AppLayout title="Service Requests" appShell={true}>
+<AppLayout title="Report a problem" appShell={true}>
   <div>
-    <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Service Requests</h1>
-    <p class="mt-1 text-sm text-slate-600">Create a request and track progress through your service desk.</p>
+    <p class="text-sm font-semibold text-blue-700">Help and support</p>
+    <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Report a problem</h1>
+    <p class="mt-1 text-sm text-slate-600">Tell us what went wrong. A screenshot helps us diagnose it faster.</p>
   </div>
 
   <form id="request-form" class="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <label class="text-sm font-medium text-slate-700" for="subject">Subject</label>
-    <input id="subject" required minlength="3" maxlength="160" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-    <label class="mt-4 block text-sm font-medium text-slate-700" for="description">Description</label>
-    <textarea id="description" required maxlength="10000" rows="5" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"></textarea>
-    <button class="mt-4 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Submit request</button>
+    <label class="text-sm font-medium text-slate-700" for="subject">What happened?</label>
+    <input id="subject" name="subject" required minlength="3" maxlength="160" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="Short summary of the problem" />
+    <label class="mt-4 block text-sm font-medium text-slate-700" for="description">Details</label>
+    <textarea id="description" name="description" required maxlength="10000" rows="5" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="What were you trying to do, and what did you expect to happen?"></textarea>
+    <label class="mt-4 block text-sm font-medium text-slate-700" for="screenshot">Screenshot <span class="font-normal text-slate-400">(optional)</span></label>
+    <input id="screenshot" name="screenshot" type="file" accept="image/png,image/jpeg,image/webp" class="mt-1.5 block w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700" />
+    <p class="mt-1 text-xs text-slate-500">PNG, JPEG, or WebP. Maximum 5 MB.</p>
+    <button class="mt-5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Send report</button>
     <p id="message" class="mt-3 min-h-5 text-sm" role="status"></p>
   </form>
 
   <section class="mt-8">
-    <h2 class="text-lg font-bold text-slate-950">Your requests</h2>
+    <h2 class="text-lg font-bold text-slate-950">Previous reports</h2>
     <div id="requests" class="mt-4 space-y-3"></div>
   </section>
 
@@ -33,14 +37,16 @@ import { API_BASE_URL } from "../../types/env";
       const response = await fetch(`${apiBaseUrl}/v1/service-requests`, { credentials: "include" });
       if (response.status === 401) { location.href = "/login"; return; }
       const data = await response.json();
-      requests.innerHTML = (data.service_requests || []).map((request) => `<article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-slate-950">${escapeHtml(request.subject)}</h3><span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">${escapeHtml(request.status)}</span></div><p class="mt-2 text-sm text-slate-600">${escapeHtml(request.description)}</p><p class="mt-3 text-xs text-slate-500">Progress: ${Number(request.progress_percent || 0)}%</p></article>`).join("") || `<p class="text-sm text-slate-500">No service requests yet.</p>`;
+      requests.innerHTML = (data.service_requests || []).map((request) => `<article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-slate-950">${escapeHtml(request.subject)}</h3><span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold capitalize text-blue-700">${escapeHtml(request.status)}</span></div><p class="mt-2 text-sm text-slate-600">${escapeHtml(request.description)}</p><div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500"><span>Progress: ${Number(request.progress_percent || 0)}%</span>${request.screenshot_name ? `<a class="font-semibold text-blue-600 hover:text-blue-800" href="${apiBaseUrl}/v1/service-requests/${encodeURIComponent(request.id)}/screenshot" target="_blank" rel="noopener">View screenshot</a>` : ""}</div></article>`).join("") || `<p class="text-sm text-slate-500">No problems reported.</p>`;
     }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const response = await fetch(`${apiBaseUrl}/v1/service-requests`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject: document.querySelector("#subject").value, description: document.querySelector("#description").value }) });
+      const screenshot = document.querySelector("#screenshot").files[0];
+      if (screenshot && screenshot.size > 5 * 1024 * 1024) { message.textContent = "The screenshot must be 5 MB or smaller."; message.className = "mt-3 min-h-5 text-sm text-red-600"; return; }
+      const response = await fetch(`${apiBaseUrl}/v1/service-requests`, { method: "POST", credentials: "include", body: new FormData(form) });
       const data = await response.json().catch(() => ({}));
-      message.textContent = response.ok ? "Request submitted." : data?.error?.message || "Unable to submit request.";
+      message.textContent = response.ok ? "Problem reported. We’ll review it shortly." : data?.error?.message || "Unable to send the report.";
       message.className = `mt-3 min-h-5 text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
       if (response.ok) { form.reset(); await loadRequests(); }
     });

@@ -1,4 +1,4 @@
-name: dLogicAI CI
+name: dLogicFlow CI
 
 on:
   push:
@@ -50,18 +50,24 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build API
-        run: pnpm --filter @dLogicAI/api build
+        run: pnpm --filter @dlogicflow/api build
 
       - name: Test API
-        run: pnpm --filter @dLogicAI/api test
+        run: pnpm --filter @dlogicflow/api test
 
       - name: Validate D1 migrations
-        run: pnpm --filter @dLogicAI/api db:migrate:local
+        run: pnpm --filter @dlogicflow/api db:migrate:local
 
       - name: Check frontend
-        run: pnpm --filter @dlogicai/web check
+        run: pnpm --filter @dlogicflow/web check
 
       - name: Build frontend
         env:
           PUBLIC_API_BASE_URL: https://ci.invalid
-        run: pnpm --filter @dlogicai/web build
+        run: pnpm --filter @dlogicflow/web build
+
+      - name: Type-check staff portals
+        run: pnpm check:staff
+
+      - name: Build staff Workers (no deployment)
+        run: pnpm build:staff

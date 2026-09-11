@@ -1,0 +1,137 @@
+{
+  "placement": {},
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "usage_model": "standard",
+  "tags": [
+    "cf:service=dlogicai-api",
+    "cf:environment=uat"
+  ],
+  "tail_consumers": [],
+  "logpush": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "redact_query_string": false,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "annotations": {
+    "workers/triggered_by": "version_upload"
+  },
+  "bindings": [
+    {
+      "name": "APP_BASE_URL",
+      "type": "secret_text"
+    },
+    {
+      "name": "APP_ENV",
+      "text": "uat",
+      "type": "plain_text"
+    },
+    {
+      "name": "APP_ORIGINS",
+      "text": "https://dlogicai-web-uat.rdproducts-adm1.workers.dev,http://localhost:4321,http://127.0.0.1:4321",
+      "type": "plain_text"
+    },
+    {
+      "bucket_name": "dlogicai-uat-backups",
+      "name": "BACKUP_BUCKET",
+      "type": "r2_bucket"
+    },
+    {
+      "name": "BYOK_STRIPE_COUPON_ID",
+      "type": "secret_text"
+    },
+    {
+      "name": "CHANNEL_QUEUE",
+      "queue_name": "dlogicai-channel-work-uat",
+      "type": "queue"
+    },
+    {
+      "name": "CORS_ORIGINS",
+      "text": "https://dlogicai-web-uat.rdproducts-adm1.workers.dev,http://localhost:4321,http://127.0.0.1:4321",
+      "type": "plain_text"
+    },
+    {
+      "bucket_name": "dlogicai-uat-data",
+      "name": "DATA_BUCKET",
+      "type": "r2_bucket"
+    },
+    {
+      "database_id": "deff70e3-7108-4c5e-86e9-a20df3cc6b36",
+      "id": "deff70e3-7108-4c5e-86e9-a20df3cc6b36",
+      "name": "DB",
+      "type": "d1"
+    },
+    {
+      "name": "EMAIL_FROM",
+      "type": "secret_text"
+    },
+    {
+      "name": "GEMINI_API_KEY",
+      "type": "secret_text"
+    },
+    {
+      "name": "MANAGED_SECONDARY_PROVIDER_PRIMARY",
+      "text": "false",
+      "type": "plain_text"
+    },
+    {
+      "name": "MASTER_KEY",
+      "type": "secret_text"
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "type": "secret_text"
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "type": "secret_text"
+    },
+    {
+      "name": "SESSION_SECRET",
+      "type": "secret_text"
+    },
+    {
+      "name": "STREAMING_ENABLED",
+      "text": "false",
+      "type": "plain_text"
+    },
+    {
+      "name": "STRIPE_CANCEL_URL",
+      "type": "secret_text"
+    },
+    {
+      "name": "STRIPE_SECRET_KEY",
+      "type": "secret_text"
+    },
+    {
+      "name": "STRIPE_SUCCESS_URL",
+      "type": "secret_text"
+    },
+    {
+      "name": "STRIPE_WEBHOOK_SECRET",
+      "type": "secret_text"
+    },
+    {
+      "name": "TURNSTILE_ENABLED",
+      "type": "secret_text"
+    },
+    {
+      "name": "TURNSTILE_SECRET_KEY",
+      "type": "secret_text"
+    }
+  ]
+}

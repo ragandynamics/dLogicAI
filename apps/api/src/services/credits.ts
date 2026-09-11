@@ -280,7 +280,9 @@ export async function completeCreditReservation(
       reservation.id,
       tenantId
     ),
-    c.env.DB.prepare(
+    // A zero-row refund INSERT resets SQLite changes(), suppressing the
+    // consumption entry below. Omit it when there is no unused credit.
+    ...(refundedCredits > 0 ? [c.env.DB.prepare(
       `INSERT INTO credit_ledger (
          id, tenant_id, credit_account_id, entry_type, source, amount,
          balance_after, reference_type, reference_id, description, created_at
@@ -299,7 +301,7 @@ export async function completeCreditReservation(
       reservation.id,
       tenantId,
       refundedCredits
-    ),
+    )] : []),
     c.env.DB.prepare(
       `INSERT INTO credit_ledger (
          id, tenant_id, credit_account_id, entry_type, source, amount,

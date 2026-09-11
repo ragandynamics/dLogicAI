@@ -1,6 +1,9 @@
+import { getGuardrails, limitReply } from "../services/platform-guardrails";
+import { featureAllowed } from '../services/platform-features';
+import { widgetBehaviorContext, type WidgetBehavior } from "../services/widget-behavior";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { Env, HonoVariables } from "../types";
+import type { Env, HonoVariables, AppContext, AuthContext } from "../types";
 import { id, now, jsonError, extractText } from "../utils/common";
 import { requireApi } from "../utils/auth";
 import {
@@ -10,8 +13,10 @@ import {
 } from "../services/credits";
 import { reserveUsage } from "../services/usage";
 import {
-  accumulateTokensFromStream,
+  parseOpenAIStreamEvent,
+  parseGeminiStreamEvent,
   callGemini,
+  MANAGED_GEMINI_MODEL,
   callOpenAI,
   detectLanguage,
   estimatedCreditChargeMicros,
@@ -25,6 +30,8 @@ import {
   prepareDialogRuntime,
 } from "../services/dialog";
 import { retrieveKnowledgeContext } from "../services/knowledge";
+import { businessContext } from "../services/business-connectors";
+import { verifyBusinessIdentity } from "../services/business-identity";
 
 const router = new Hono<{ Bindings: Env; Variables: HonoVariables }>();
 
@@ -39,7 +46,7 @@ router.post("/v1/responses", async (c) => {
     return jsonError(
       c,
       "INVALID_API_KEY",
-      "A valid dLogicAI API key is required.",
+      "A valid dLogicFlow API key is required.",
       401
     );
   }
@@ -55,6 +62,13 @@ router.post("/v1/responses", async (c) => {
     );
   }
 
+  return executeResponse(c, auth, projectId, await c.req.json().catch(() => ({})));
+});
+
+// Trusted callers must resolve tenant/project and constrain input before invoking.
+export async function executeResponse(c: AppContext, auth: AuthContext, projectId: string, body: unknown, options?: { requestId: string; channel?: "web"; widgetBehavior?: WidgetBehavior; history?: { role: string; content: string }[] }) {
+  c.set("auth", auth);
+  c.set("apiProjectId", projectId);
   const schema = z.object({
     model: z.string().default("auto"),
     provider: z.enum(["openai", "google"]).optional(),
@@ -64,10 +78,11 @@ router.post("/v1/responses", async (c) => {
     language: z.string().default("auto"),
     response_language: z.string().default("auto"),
     locale: z.string().optional(),
+    business_identity: z.string().max(8000).optional(),
     stream: z.boolean().default(false),
   });
 
-  const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+  const parsed = schema.safeParse(body);
 
   if (!parsed.success) {
     return jsonError(c, "INVALID_REQUEST", "Invalid response request.");
@@ -113,10 +128,18 @@ router.post("/v1/responses", async (c) => {
     .first<any>();
 
   const textInput = extractText(parsed.data.input);
+  const limits = options?.channel ? await getGuardrails(c.env.DB, options.channel) : null;
+  if (limits && !limits.enabled) return jsonError(c, "CHANNEL_DISABLED", "This channel is temporarily unavailable.", 503);
+  if (limits && textInput.length > limits.max_input_characters) return jsonError(c, "INPUT_TOO_LARGE", "Your message exceeds this channel's input limit.", 400);
 
   const conversationId = parsed.data.conversation_id || id("conv");
+  const businessRequestId = options?.requestId || c.req.header('Idempotency-Key')?.trim() || id('business-context');
+  if(businessRequestId.length>200 || /[\r\n]/.test(businessRequestId))return jsonError(c,'INVALID_IDEMPOTENCY_KEY','Idempotency-Key must be at most 200 characters.',400);
+  let subjects:Record<string,string>;
+  try { subjects=await verifyBusinessIdentity(c.env.SESSION_SECRET,parsed.data.business_identity,{tenant:auth.tenantId,project:projectId,service:parsed.data.chat_service_id||'',conversation:conversationId}); }
+  catch { return jsonError(c,'INVALID_CUSTOMER_IDENTITY','Customer verification expired or does not match this conversation.',401); }
 
-  const dialogRuntime = await prepareDialogRuntime(
+  const dialogRuntime = options?.widgetBehavior && options.widgetBehavior.conversation_template !== "service" ? null : await prepareDialogRuntime(
     c,
     projectId,
     parsed.data.chat_service_id,
@@ -124,6 +147,11 @@ router.post("/v1/responses", async (c) => {
     textInput
   );
 
+  const existingConversation = parsed.data.conversation_id ? await c.env.DB.prepare('SELECT created_at FROM conversations WHERE id=? AND tenant_id=? AND project_id=?').bind(conversationId,auth.tenantId,projectId).first<{created_at:number}>() : null;
+  const experience = dialogRuntime || (options?.widgetBehavior && options.widgetBehavior.conversation_template !== 'service') ? 'chat.guided' : 'chat.qa';
+  for(const feature of [experience,...(options?.channel?['channel.'+options.channel]:[])]) {
+    if(!await featureAllowed(c.env.DB,feature,auth.tenantId,existingConversation?.created_at))return jsonError(c,'FEATURE_UNAVAILABLE','This experience is currently unavailable. Your saved conversation is retained.',403);
+  }
   const dialogContext = dialogRuntime
     ? `\n\nGuided conversation state:\nGoal: ${
         dialogRuntime.goal || "Complete the current conversation step."
@@ -131,7 +159,7 @@ router.post("/v1/responses", async (c) => {
         dialogRuntime.slots
       )}\nCurrent milestone: ${
         dialogRuntime.stateKey
-      }\nDo not claim the business outcome is complete unless the configured flow reaches it.`
+      }\nA completed conversation step is not evidence of an external action. Connector actions require operator approval and a successful external receipt.`
     : "";
 
   const knowledgeContext = await retrieveKnowledgeContext(
@@ -140,12 +168,14 @@ router.post("/v1/responses", async (c) => {
     parsed.data.chat_service_id,
     textInput
   );
-  const providerContext = `${dialogContext}${knowledgeContext}`;
+  const connectorContext = await businessContext(c,projectId,parsed.data.chat_service_id,textInput,businessRequestId,subjects,options?.widgetBehavior?.business_data_enabled===false,conversationId);
+  const providerContext = `${limits ? `\nLimit the reply to at most ${limits.max_outputs} paragraphs or list entries and ${limits.max_output_characters} characters.\n` : ""}${dialogContext}${knowledgeContext}${connectorContext}${options?.widgetBehavior ? widgetBehaviorContext(options.widgetBehavior) : ""}`;
+  const input = options?.history ? [...options.history, { role: "user", content: textInput }] : parsed.data.input;
   const providerInput = providerContext
-    ? Array.isArray(parsed.data.input)
-      ? [{ role: "system", content: providerContext }, ...parsed.data.input]
-      : `${String(parsed.data.input)}${providerContext}`
-    : parsed.data.input;
+    ? Array.isArray(input)
+      ? [{ role: "system", content: providerContext }, ...input]
+      : `${String(input)}${providerContext}`
+    : input;
 
   const inputLanguage =
     parsed.data.language === "auto"
@@ -160,10 +190,13 @@ router.post("/v1/responses", async (c) => {
   );
 
   if (!resolved.apiKey) {
+    const tenantKeyRequired = resolved.mode === "byok";
     return jsonError(
       c,
       "NO_PROVIDER",
-      "No AI provider is configured for this project.",
+      tenantKeyRequired
+        ? "This Chat Service is set to use a tenant key, but no matching active key was found. Select Google Gemini and save an active Gemini key."
+        : "This Chat Service is set to managed AI, but its provider is unavailable in this environment.",
       400
     );
   }
@@ -174,14 +207,17 @@ router.post("/v1/responses", async (c) => {
     model =
       resolved.provider === "openai"
         ? "gpt-5-mini"
-        : "gemini-2.5-flash-lite";
+        : MANAGED_GEMINI_MODEL;
+  }
+  if (resolved.provider === "google" && model === "gemini-2.5-flash-lite") {
+    model = MANAGED_GEMINI_MODEL;
   }
 
   if (
     resolved.mode === "managed" &&
     !(
       (resolved.provider === "openai" && model === "gpt-5-mini") ||
-      (resolved.provider === "google" && model === "gemini-2.5-flash-lite")
+      (resolved.provider === "google" && model === MANAGED_GEMINI_MODEL)
     )
   ) {
     return jsonError(
@@ -192,7 +228,7 @@ router.post("/v1/responses", async (c) => {
     );
   }
 
-  const idempotencyKey = c.req.header("Idempotency-Key")?.trim();
+  const idempotencyKey = options?.requestId || c.req.header("Idempotency-Key")?.trim();
   if (
     idempotencyKey &&
     (idempotencyKey.length > 200 || /[\r\n]/.test(idempotencyKey))
@@ -205,8 +241,7 @@ router.post("/v1/responses", async (c) => {
     );
   }
   const requestId = idempotencyKey || id("req");
-  const maxOutputTokens =
-    resolved.mode === "managed" ? MANAGED_MAX_OUTPUT_TOKENS : undefined;
+  const maxOutputTokens = limits ? Math.min(limits.max_output_tokens, resolved.mode === "managed" ? MANAGED_MAX_OUTPUT_TOKENS : limits.max_output_tokens) : resolved.mode === "managed" ? MANAGED_MAX_OUTPUT_TOKENS : undefined;
   const estimatedCredits = estimatedCreditChargeMicros(
     plan,
     resolved.mode,
@@ -234,6 +269,10 @@ router.post("/v1/responses", async (c) => {
         : "Insufficient AI credits. Please purchase additional credits or wait for your subscription credits to renew.",
       creditReservation.code === "IDEMPOTENCY_KEY_REUSED" ? 409 : 402
     );
+  }
+
+  if (creditReservation.idempotent) {
+    return jsonError(c, "IDEMPOTENCY_KEY_REUSED", "This request has already been submitted.", 409);
   }
 
   const t = now();
@@ -290,6 +329,8 @@ router.post("/v1/responses", async (c) => {
             maxOutputTokens
           );
 
+    if (limits && !parsed.data.stream) result.text = limitReply(result.text, limits);
+
     /* -------------------------------------------------------------------- */
     /* STREAMING                                                            */
     /* -------------------------------------------------------------------- */
@@ -300,9 +341,23 @@ router.post("/v1/responses", async (c) => {
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
-      // Buffer to accumulate SSE lines for token extraction
-      const streamBuffer: string[] = [];
+      // State to accumulate tokens from provider events
+      let finalTokens = { inputTokens: 0, outputTokens: 0 };
       let partialLine = "";
+      let hasUsage = false;
+      const parseUsageLine = (line: string) => {
+        if (!line.startsWith("data:")) return;
+        const eventData = line.slice(5).trim();
+        if (!eventData || eventData === "[DONE]") return;
+        const parsed = resolved.provider === "openai"
+          ? parseOpenAIStreamEvent(eventData)
+          : parseGeminiStreamEvent(eventData);
+        if (Number.isSafeInteger(parsed.inputTokens) && Number(parsed.inputTokens) >= 0 &&
+            Number.isSafeInteger(parsed.outputTokens) && Number(parsed.outputTokens) >= 0) {
+          finalTokens = { inputTokens: Number(parsed.inputTokens), outputTokens: Number(parsed.outputTokens) };
+          hasUsage = true;
+        }
+      };
 
       const stream = new ReadableStream<Uint8Array>({
         async pull(controller) {
@@ -310,12 +365,8 @@ router.post("/v1/responses", async (c) => {
             const { done, value } = await reader.read();
 
             if (done) {
-              // Stream ended: parse accumulated tokens and settle
-              const tokens = accumulateTokensFromStream(
-                resolved.provider,
-                streamBuffer
-              );
-
+              parseUsageLine(partialLine + decoder.decode());
+              if (!hasUsage) throw new Error("Provider stream ended without usage.");
               // Calculate actual credit charge from real tokens
               const byokFee =
                 resolved.mode === "byok"
@@ -323,13 +374,13 @@ router.post("/v1/responses", async (c) => {
                   : 0;
               const actualCredits =
                 resolved.mode === "byok"
-                  ? Math.max(byokFee, 1)
+                  ? byokFee
                   : managedCustomerChargeMicros(
                       plan,
                       resolved.provider,
                       model,
-                      tokens.inputTokens,
-                      tokens.outputTokens
+                      finalTokens.inputTokens,
+                      finalTokens.outputTokens
                     );
 
               // Update usage_events with actual token counts
@@ -344,9 +395,9 @@ router.post("/v1/responses", async (c) => {
                  WHERE request_id = ? AND status = 'reserved'`
               )
                 .bind(
-                  tokens.inputTokens,
-                  tokens.outputTokens,
-                  tokens.inputTokens + tokens.outputTokens,
+                  finalTokens.inputTokens,
+                  finalTokens.outputTokens,
+                  finalTokens.inputTokens + finalTokens.outputTokens,
                   actualCredits,
                   now(),
                   requestId
@@ -368,7 +419,7 @@ router.post("/v1/responses", async (c) => {
                 requestId,
                 textInput,
                 ""
-              );
+              ).catch(() => undefined);
 
               controller.enqueue(
                 encoder.encode(
@@ -376,8 +427,8 @@ router.post("/v1/responses", async (c) => {
                     type: "response.completed",
                     request_id: requestId,
                     tokens: {
-                      input: tokens.inputTokens,
-                      output: tokens.outputTokens,
+                      input: finalTokens.inputTokens,
+                      output: finalTokens.outputTokens,
                     },
                   })}\n\n`
                 )
@@ -387,26 +438,26 @@ router.post("/v1/responses", async (c) => {
               return;
             }
 
-            // Accumulate SSE lines for later token parsing
-            partialLine += decoder.decode(value, { stream: true });
-            const lines = partialLine.split("\n");
-            partialLine = lines.pop() || "";
+            const chunk = decoder.decode(value, { stream: true });
 
-            for (const line of lines) {
-              if (line.trim()) {
-                streamBuffer.push(line);
-              }
-            }
-
-            // Forward the provider event to client
+            // Forward the provider event to client immediately
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({
                   type: "response.provider_event",
-                  data: decoder.decode(value, { stream: true }),
+                  data: chunk,
                 })}\n\n`
               )
             );
+
+            // Parse usage data from chunk without buffering the entire stream
+            partialLine += chunk;
+            const lines = partialLine.split("\n");
+            partialLine = lines.pop() || "";
+
+            for (const line of lines) {
+              parseUsageLine(line);
+            }
           } catch (error) {
             await c.env.DB.prepare(
               `UPDATE usage_events SET status = 'failed' WHERE request_id = ? AND status = 'reserved'`
@@ -415,12 +466,12 @@ router.post("/v1/responses", async (c) => {
               .run();
             await refundCreditReservation(c, auth.tenantId, requestId);
 
-            controller.error(error);
+            controller.error(new Error("AI provider stream failed."));
           }
         },
 
         async cancel() {
-          await reader.cancel();
+          await reader.cancel().catch(() => undefined);
           await c.env.DB.prepare(
             `UPDATE usage_events SET status = 'failed' WHERE request_id = ? AND status = 'reserved'`
           )
@@ -575,7 +626,8 @@ router.post("/v1/responses", async (c) => {
         conversationId,
         projectId,
         parsed.data.chat_service_id,
-        dialogRuntime
+        dialogRuntime,
+        options?.widgetBehavior?.business_data_enabled!==false
       );
     }
     await recordConversationIntelligence(
@@ -641,6 +693,6 @@ router.post("/v1/responses", async (c) => {
       502
     );
   }
-});
+}
 
 export const responseRoutes = router;

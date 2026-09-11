@@ -135,7 +135,7 @@ export const api = {
 
   inviteMember: (body: {
     email: string;
-    role: "admin" | "member";
+    role: "admin" | "developer" | "billing" | "sales_operations";
   }) =>
     request<any>("/organization/invitations", {
       method: "POST",

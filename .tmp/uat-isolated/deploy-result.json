@@ -1,0 +1,44 @@
+{
+  "created_on": "2026-08-19T14:20:20.300415Z",
+  "modified_on": "2026-09-10T06:21:47.581881Z",
+  "id": "dlogicai-api-uat",
+  "tag": "958299f342a74afb8b9799db3369518b",
+  "entry_point": "index.js",
+  "tags": [
+    "cf:service=dlogicai-api",
+    "cf:environment=uat"
+  ],
+  "deployment_id": "c96feedcda324c119678945266935590",
+  "tail_consumers": null,
+  "logpush": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "redact_query_string": false,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "has_assets": false,
+  "has_modules": true,
+  "etag": "7d66449fab88a152747fdab712909a00d1546b88b3580043394134268577b147",
+  "handlers": [
+    "fetch",
+    "queue"
+  ],
+  "last_deployed_from": "api",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "usage_model": "standard",
+  "startup_time_ms": 23
+}

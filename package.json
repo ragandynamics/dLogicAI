@@ -1,5 +1,5 @@
 {
-  "name": "dLogicAI",
+  "name": "dLogicFlow",
   "private": true,
   "packageManager": "pnpm@10.12.4",
   "scripts": {
@@ -11,7 +11,9 @@
     "db:migrate:local": "pnpm --dir apps/api db:migrate:local",
     "db:migrate:remote": "pnpm --dir apps/api db:migrate:remote",
     "check": "pnpm --dir apps/api build && pnpm --dir apps/web check",
-    "build:all": "pnpm --dir apps/api build && pnpm --dir apps/web build"
+    "build:all": "pnpm --dir apps/api build && pnpm --dir apps/web build",
+    "check:staff": "pnpm --filter @dlogicflow/api exec tsc --noEmit -p tsconfig.staff.json",
+    "build:staff": "pnpm --filter @dlogicai/system-admin build && pnpm --filter @dlogicai/operations build && pnpm --filter @dlogicai/billing build"
   },
   "dependencies": {
     "hono": "^4.13.3",

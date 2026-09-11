@@ -1,100 +1,66 @@
 ---
-import AppLayout from "../../layouts/AppLayout.astro";
-import { API_BASE_URL } from "../../types/env";
-
-const connectors = [
-  ["CRM", "Salesforce", "Customer profiles, leads, opportunities and account activity", "Connected", "10,000", "7,240"],
-  ["CRM", "HubSpot", "Contacts, companies, deals and engagement history", "Available", "5,000", "0"],
-  ["Support", "Zendesk", "Tickets, customer context and support outcomes", "Connected", "5,000", "3,182"],
-  ["ERP", "SAP", "Orders, customer records and operational status", "Available", "2,000", "0"],
-  ["Messaging", "WhatsApp Business", "Conversation delivery and customer interaction events", "Connected", "20,000", "12,486"],
-];
+import AppLayout from '../../layouts/AppLayout.astro';
 ---
-
-<AppLayout title="Integrations" appShell={true}>
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Integration Connectors</h1>
-      <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Connect dLogicAI to CRM, support, ERP and messaging systems. Each connector can have an included monthly API-call allowance; additional calls are billed separately.</p>
-    </div>
-    <a href="/dashboard/billing" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">View connector billing</a>
-  </div>
-
-  <div class="mt-8 grid gap-5 xl:grid-cols-2">
-    {connectors.map(([category, name, desc, status, allowance, used]) => {
-      const pct = Math.min(100, (Number(used.replaceAll(",", "")) / Number(allowance.replaceAll(",", ""))) * 100);
-      return (
-        <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">{category}</span>
-                <span class:list={["rounded-full px-2.5 py-1 text-[10px] font-bold", status === "Connected" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"]}>{status}</span>
-              </div>
-              <h2 class="mt-3 text-lg font-bold text-slate-950">{name}</h2>
-              <p class="mt-1 text-sm leading-6 text-slate-600">{desc}</p>
-            </div>
-            <button class="shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">{status === "Connected" ? "Manage" : "Connect"}</button>
-          </div>
-
-          <div class="mt-6 rounded-xl bg-slate-50 p-4">
-            <div class="flex items-center justify-between gap-4 text-sm">
-              <span class="font-medium text-slate-700">Monthly API calls</span>
-              <span class="font-semibold text-slate-950">{used} / {allowance}</span>
-            </div>
-            <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
-              <div class="h-full rounded-full bg-blue-600" style={`width:${pct}%`}></div>
-            </div>
-            <div class="mt-3 flex items-center justify-between gap-4 text-xs text-slate-500">
-              <span>{Math.max(0, Number(allowance.replaceAll(",", "")) - Number(used.replaceAll(",", ""))).toLocaleString()} calls remaining</span>
-              <span>Overage: billed per additional call</span>
-            </div>
-          </div>
-        </article>
-      );
-    })}
-  </div>
-
-  <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-wide text-blue-700">Commerce connectors</p><h2 class="mt-1 text-xl font-bold text-slate-950">Marketplace data for guided conversations</h2><p class="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Install a marketplace connector per project environment. Credentials are encrypted and never shown again.</p></div><label class="text-sm font-medium text-slate-700">Project<select id="commerce-project" class="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"></select></label></div>
-    <div id="commerce-connectors" class="mt-5 grid gap-4 md:grid-cols-2"></div>
-    <p id="commerce-message" class="mt-4 min-h-5 text-sm" role="status"></p>
+<AppLayout title="Business connectors" appShell={true}>
+  <div class="flex flex-wrap items-end justify-between gap-4"><div><p class="text-sm font-semibold text-blue-700">Business data</p><h1 class="text-3xl font-bold">Business connectors</h1><p class="mt-2 text-slate-600">Connect HubSpot, choose customer information, and review outgoing changes.</p></div><label>Project<select id="project" class="block rounded-lg border p-2"></select></label></div>
+  <p id="notice" class="my-4 min-h-6 text-sm text-blue-800" role="status" aria-live="polite"></p>
+  <div class="mb-6 grid gap-4 sm:grid-cols-3"><div class="rounded-xl border bg-white p-5"><p>Connections</p><strong id="count" class="text-2xl">—</strong></div><div class="rounded-xl border bg-white p-5"><p>Completed calls · all time</p><strong id="usage" class="text-2xl">—</strong></div><div class="rounded-xl border bg-white p-5"><p>Recorded charges · all time</p><strong id="charges" class="text-2xl">—</strong></div></div>
+  <section class="rounded-xl border bg-white p-6"><h2 class="text-xl font-bold">1. Connect your business system</h2><p class="mt-2 text-sm text-slate-600">Owners and admins manage connections. HubSpot profiles stay private: your website backend must verify the customer before the assistant can read their record.</p>
+    <form id="create" class="mt-5"><fieldset id="create-fields" class="grid gap-4 md:grid-cols-2">
+      <label>System<select id="provider" class="block w-full rounded-lg border p-2"><option value="hubspot">HubSpot</option><option value="business_api">Business API</option></select></label>
+      <label>Connection name<input id="name" required maxlength="100" class="block w-full rounded-lg border p-2" placeholder="Customer support CRM" /></label>
+      <label id="origin-label" hidden>Approved API address<input id="origin" type="url" class="block w-full rounded-lg border p-2" placeholder="https://business.example.com" /></label>
+      <label>Private access token<input id="token" type="password" autocomplete="new-password" required minlength="10" maxlength="4000" class="block w-full rounded-lg border p-2" /></label>
+      <label>Customer fields<input id="properties" value="firstname,lastname,company" class="block w-full rounded-lg border p-2" /><span class="text-xs text-slate-500">HubSpot property names, separated by commas. Choose only fields suitable for customer responses.</span></label>
+      <label>Requirements property<input id="lead-property" class="block w-full rounded-lg border p-2" placeholder="Your HubSpot text property for customer requirements" /></label>
+      <label>Automatic sync<select id="sync-interval" class="block w-full rounded-lg border p-2"><option value="0">Manual only</option><option value="5">Every 5 minutes</option><option value="60">Every hour</option><option value="1440">Every day</option></select></label>
+      <label id="public-label" hidden><input id="public-live" type="checkbox" /> Allow public live lookups for Business API</label>
+      <label>Data freshness<select id="freshness" class="block w-full rounded-lg border p-2"><option value="300">5 minutes</option><option value="3600" selected>1 hour</option><option value="86400">1 day</option></select></label>
+      <div><p>Allow outgoing actions after review</p><label class="block"><input id="lead" type="checkbox" /> Create a contact</label><label class="block"><input id="ticket" type="checkbox" /> Create a support ticket</label></div>
+      <label>Ticket pipeline ID<input id="pipeline" pattern="[0-9]+" class="block w-full rounded-lg border p-2" /></label><label>Ticket stage ID<input id="stage" pattern="[0-9]+" class="block w-full rounded-lg border p-2" /></label>
+      <button class="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white md:col-span-2">Save connection securely</button>
+    </fieldset></form>
+    <p class="mt-3 text-xs text-slate-500">Successful tests, syncs and lookups use your configured connector allowance. Marketplace-specific adapters remain unavailable.</p>
+    <div id="secret-panel" hidden class="mt-4 rounded-lg bg-amber-50 p-4"><p>Save this Business API bridge signing secret in your server configuration. It is separate from a HubSpot app secret. It is shown only now.</p><code id="secret" class="break-all"></code><button id="hide-secret" class="ml-3 underline">Hide</button></div>
   </section>
-
-  <section class="mt-5 grid gap-5 lg:grid-cols-3">
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="text-xs font-bold uppercase tracking-wide text-blue-700">1 · Included</div>
-      <h2 class="mt-2 font-bold text-slate-950">Bundled connector calls</h2>
-      <p class="mt-2 text-sm leading-6 text-slate-600">Your subscription can include a fixed number of connector API calls per month.</p>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="text-xs font-bold uppercase tracking-wide text-blue-700">2 · Overage</div>
-      <h2 class="mt-2 font-bold text-slate-950">Additional calls</h2>
-      <p class="mt-2 text-sm leading-6 text-slate-600">Calls beyond the bundled allowance are metered and billed separately using your configured connector rate.</p>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="text-xs font-bold uppercase tracking-wide text-blue-700">3 · Forecast</div>
-      <h2 class="mt-2 font-bold text-slate-950">Cost visibility</h2>
-      <p class="mt-2 text-sm leading-6 text-slate-600">The billing estimator can combine subscription bundles, connector overages, retention, archival and other add-ons into a forecast.</p>
-      <a href="/dashboard/billing" class="mt-4 inline-block text-sm font-semibold text-blue-600 hover:text-blue-700">Open estimator →</a>
-    </div>
+  <section class="mt-6"><h2 class="text-xl font-bold">2. Verify, attach and activate</h2><div id="connections" class="mt-4 grid gap-4 xl:grid-cols-2"></div></section>
+  <section class="mt-6 rounded-xl border bg-white p-6"><h2 class="text-xl font-bold">3. Review outgoing actions</h2><p class="mt-2 text-sm text-slate-600">Review the exact information before approving. A created record does not mean an email was sent or a booking was confirmed.</p>
+    <form id="propose" class="mt-4"><fieldset id="action-fields" class="grid gap-3 md:grid-cols-2"><label>Connection<select id="action-connector" class="block w-full rounded-lg border p-2"></select></label><label>Chat Service<select id="action-service" class="block w-full rounded-lg border p-2"></select></label><label>Action<select id="operation" class="block w-full rounded-lg border p-2"><option value="create_lead">Create a contact</option><option value="create_ticket">Create a support ticket</option></select></label><label id="person-label">Customer name<input id="person" class="block w-full rounded-lg border p-2" maxlength="100" /></label><label id="email-label">Customer email<input id="email" type="email" class="block w-full rounded-lg border p-2" maxlength="254" /></label><label id="title-label" hidden>Ticket title<input id="title" class="block w-full rounded-lg border p-2" maxlength="200" /></label><label class="md:col-span-2">Requirements or description<textarea id="details" required maxlength="2000" class="block w-full rounded-lg border p-2"></textarea></label><button class="rounded-lg border px-4 py-2 md:col-span-2">Prepare for review</button></fieldset></form>
+    <div id="actions" class="mt-5 space-y-3"></div><div id="review" hidden class="mt-5 rounded-lg border border-blue-300 bg-blue-50 p-4"><h3 class="font-bold">Review data to be sent</h3><pre id="review-data" class="my-3 whitespace-pre-wrap break-words font-sans text-sm"></pre><button id="approve" class="rounded-lg bg-blue-700 px-4 py-2 text-white">Approve and queue</button><button id="close-review" class="ml-3 underline">Close</button></div>
   </section>
+  <section class="mt-6 rounded-xl border bg-white p-6"><div class="flex justify-between"><h2 class="text-xl font-bold">Recent activity</h2><button id="refresh" class="text-blue-700 underline">Refresh</button></div><p class="mt-2 text-sm text-slate-500">Latest 50 calls. Unknown outcomes need operator reconciliation before another attempt.</p><div id="runs" class="mt-4 overflow-auto"></div><a href="/dashboard/audit" class="mt-4 inline-block text-blue-700 underline">Open audit history</a></section>
+  <script is:inline>
+    (()=>{
+      const $=id=>document.getElementById(id);let data={connectors:[],bindings:[],actions:[],runs:[]},services=[],busy=false,reviewId=null,editing=null;
+      const base=()=>'/api/v1/projects/'+encodeURIComponent($('project').value)+'/business-connectors';
+      const node=(tag,text,cls='')=>{const e=document.createElement(tag);e.textContent=text;e.className=cls;return e;};
+      async function api(path,body){const r=await fetch(path,{credentials:'include',...(body!==undefined?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error?.message||'Unable to complete this request.');return d;}
+      async function task(fn){if(busy)return;busy=true;$('project').disabled=true;$('notice').textContent='Working…';try{await fn();}catch(e){$('notice').textContent=e.message;}finally{busy=false;$('project').disabled=false;}}
+      function button(text,fn){const b=node('button',text,'rounded-lg border px-3 py-2 text-sm text-blue-700');b.type='button';b.disabled=!data.can_manage;b.onclick=()=>task(fn);return b;}
+      async function load(){reviewId=null;$('review').hidden=true;const project=$('project').value;if(!project)return;const [next,s]=await Promise.all([api(base()),api('/api/v1/projects/'+encodeURIComponent(project)+'/chat-services')]);data=next;services=s.chat_services||[];render();}
+      function render(){
+        $('count').textContent=data.connectors.length;$('usage').textContent=data.usage?.completed??0;$('charges').textContent=new Intl.NumberFormat('en',{style:'currency',currency:'USD',maximumFractionDigits:6}).format((data.usage?.charge_micros||0)/1000000);
+        $('create-fields').disabled=$('action-fields').disabled=!data.can_manage;
+        $('action-connector').replaceChildren(...data.connectors.filter(c=>c.status==='active').map(c=>new Option(c.name,c.id)));$('action-service').replaceChildren(...services.map(s=>new Option(s.name,s.id)));
+        $('connections').replaceChildren(...data.connectors.map(c=>{
+          const card=node('article','','rounded-xl border bg-white p-5');card.append(node('h3',c.name,'text-lg font-bold'),node('p',`${c.config.provider} · ${c.status} · ${c.tested_at?'Verified '+new Date(c.tested_at).toLocaleString():'Not verified'}`,'mt-1 text-sm text-slate-600'));
+          const controls=node('div','','my-4 flex flex-wrap gap-2');controls.append(button('Edit settings',async()=>{editing=c.id;$('name').value=c.name;$('provider').value=c.config.provider;$('provider').disabled=true;$('origin').value=c.config.origin;$('properties').value=c.config.contact_properties.join(',');$('freshness').value=c.config.max_age_seconds;$('sync-interval').value=c.config.sync_interval_minutes||0;$('lead-property').value=c.config.lead_notes_property||'';$('pipeline').value=c.config.ticket_pipeline||'';$('stage').value=c.config.ticket_stage||'';$('lead').checked=c.config.actions.includes('create_lead');$('ticket').checked=c.config.actions.includes('create_ticket');$('public-live').checked=c.config.public_live;$('token').required=false;$('token').value='';$('notice').textContent='Editing '+c.name+'. Leave token blank to keep it. Saving resets verification and removes the old data index.';$('create').scrollIntoView({block:'start'});}),button('Test',async()=>{await api(base()+'/'+c.id+'/test',{});await load();$('notice').textContent='Connection verified.';}),button(c.status==='active'?'Deactivate':'Activate',async()=>{await api(base()+'/'+c.id+'/status',{status:c.status==='active'?'disabled':'active'});await load();$('notice').textContent='Status updated.';}),button('Sync first page',()=>sync(c,'')));
+          if(c.status==='disabled')controls.append(button('Prepare to retest',async()=>{await api(base()+'/'+c.id+'/status',{status:'configured'});await load();$('notice').textContent='Ready to test.';}));
+          card.append(controls,node('p','Choose services that may use these records. Live lookup sends the current question to the connected system.','mb-3 text-sm text-slate-600'));
+          services.forEach(s=>{const binding=data.bindings.find(b=>b.connector_id===c.id&&b.service_id===s.id);const row=node('div','','my-2 flex flex-wrap items-center gap-3');const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=!!binding;const live=document.createElement('input');live.type='checkbox';live.checked=!!binding?.live;enabled.disabled=live.disabled=!data.can_manage;const label=node('label',s.name+' ');label.prepend(enabled);const ll=node('label',' Live lookup');ll.prepend(live);row.append(label,ll,button('Save access',async()=>{await api(base()+'/'+c.id+'/bindings',{service_id:s.id,enabled:enabled.checked,live:live.checked});await load();$('notice').textContent='Service access saved.';}));card.append(row);});return card;
+        }));if(!data.connectors.length)$('connections').append(node('p','No connectors saved in this project.','text-slate-500'));
+        $('actions').replaceChildren(...data.actions.map(a=>{const row=node('div','','flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 p-3');row.append(node('span',`${a.operation.replaceAll('_',' ')} · ${a.status} · ${new Date(a.created_at).toLocaleString()}`));if(a.status==='pending'||a.status==='approved')row.append(button('Review',async()=>{const item=await api(base()+'/actions/'+a.id);reviewId=item.id;$('review-data').textContent=Object.entries(item.input).map(([k,v])=>k.replaceAll('_',' ')+': '+v).join('\n');$('review').hidden=false;$('approve').textContent=item.status==='approved'?'Queue approved action again':'Approve and queue';$('review').scrollIntoView({block:'nearest'});$('notice').textContent='Review the data before approving.';}));return row;}));
+        const table=node('table','','w-full text-left text-sm');const head=node('tr');['Operation','Status','Attempts','Time'].forEach(v=>head.append(node('th',v,'p-2')));table.append(head);data.runs.forEach(r=>{const row=node('tr');[r.operation,r.status+(r.error_code?' · '+r.error_code:''),r.attempts,new Date(r.created_at).toLocaleString()].forEach(v=>row.append(node('td',String(v),'border-t p-2')));table.append(row);});$('runs').replaceChildren(data.runs.length?table:node('p','No calls recorded yet.'));
+      }
+      async function sync(c,cursor){const result=await api(base()+'/'+c.id+'/sync',{cursor,idempotency_key:crypto.randomUUID()});await load();$('notice').textContent=`Imported ${result.received} records.`;if(result.next_cursor)$('notice').append(' ',button('Import next page',()=>sync(c,result.next_cursor)));}
+      $('provider').onchange=()=>{$('origin-label').hidden=$('public-label').hidden=$('provider').value==='hubspot';};
+      $('create').onsubmit=e=>{e.preventDefault();task(async()=>{const secret=Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('');const config={provider:$('provider').value,origin:$('provider').value==='hubspot'?'https://api.hubapi.com':$('origin').value,contact_properties:$('properties').value.split(',').map(v=>v.trim()).filter(Boolean),max_age_seconds:Number($('freshness').value),sync_interval_minutes:Number($('sync-interval').value),public_live:$('public-live').checked,...($('lead-property').value?{lead_notes_property:$('lead-property').value}:{}),actions:[$('lead').checked?'create_lead':null,$('ticket').checked?'create_ticket':null].filter(Boolean),...($('pipeline').value?{ticket_pipeline:$('pipeline').value}:{}),...($('stage').value?{ticket_stage:$('stage').value}:{})};await api(editing?base()+'/'+editing+'/configuration':base(),{name:$('name').value,...($('token').value?{token:$('token').value}:{}),webhook_secret:secret,config});editing=null;$('provider').disabled=false;$('token').required=true;$('token').value='';$('secret').textContent=secret;$('secret-panel').hidden=false;await load();$('notice').textContent='Saved. Test the connection, attach a service and activate it.';});};
+      $('hide-secret').onclick=()=>{$('secret').textContent='';$('secret-panel').hidden=true;};
+      $('operation').onchange=()=>{const ticket=$('operation').value==='create_ticket';$('person-label').hidden=$('email-label').hidden=ticket;$('title-label').hidden=!ticket;};
+      $('propose').onsubmit=e=>{e.preventDefault();task(async()=>{const operation=$('operation').value;const input=operation==='create_lead'?{name:$('person').value,email:$('email').value,requirements:$('details').value}:{title:$('title').value,description:$('details').value};await api(base()+'/'+encodeURIComponent($('action-connector').value)+'/actions',{service_id:$('action-service').value,operation,input,idempotency_key:crypto.randomUUID()});await load();$('notice').textContent='Prepared. Open Review to approve the outgoing data.';});};
+      $('approve').onclick=()=>task(async()=>{if(!reviewId)return;await api(base()+'/actions/'+reviewId+'/approve',{confirm:true});await load();$('notice').textContent='Action queued. Refresh to check the result.';});$('close-review').onclick=()=>{$('review').hidden=true;reviewId=null;};
+      $('project').onchange=()=>task(async()=>{await load();$('notice').textContent='Project loaded.';});$('refresh').onclick=()=>task(async()=>{await load();$('notice').textContent='Activity refreshed.';});
+      task(async()=>{const result=await api('/api/v1/projects');$('project').replaceChildren(...(result.projects||[]).map(p=>new Option(p.name+' ('+p.environment+')',p.id)));await load();$('notice').textContent=$('project').value?'':'Create a project to connect a business system.';});
+    })();
+  </script>
 </AppLayout>
-
-<script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
-  const commerceProject = document.querySelector("#commerce-project");
-  const commerceConnectors = document.querySelector("#commerce-connectors");
-  const commerceMessage = document.querySelector("#commerce-message");
-  const catalog = [
-    ["amazon", "Amazon SP-API", "Orders, shipments, returns, products, and inventory.", "seller_id, marketplace_id, client_id, client_secret, refresh_token"],
-    ["shopee", "Shopee", "Shop orders, products, inventory, and fulfillment.", "partner_id, partner_key, shop_id, access_token"],
-    ["lazada", "Lazada", "Orders, products, inventory, and shipment status.", "app_key, app_secret, access_token, seller_id"],
-    ["tiktok_shop", "TikTok Shop", "Shop orders, catalog, fulfillment, and seller data.", "app_key, app_secret, access_token, shop_id"],
-  ];
-  function showCommerceMessage(text, error = false) { commerceMessage.textContent = text; commerceMessage.className = `mt-4 min-h-5 text-sm ${error ? "text-red-600" : "text-emerald-600"}`; }
-  async function commerceApi(path, options = {}) { const response = await fetch(`${apiBaseUrl}${path}`, { credentials: "include", ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data?.error?.message || "Connector request failed."); return data; }
-  async function renderCommerce() { if (!commerceProject.value) return; try { const data = await commerceApi(`/v1/projects/${encodeURIComponent(commerceProject.value)}/connectors`); const installed = data.connectors || []; commerceConnectors.innerHTML = catalog.map(([key, name, description, fields]) => { const matches = installed.filter((item) => item.key === key); return `<article class="rounded-xl border border-slate-200 p-4"><div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-slate-950">${name}</h3><p class="mt-1 text-sm leading-5 text-slate-600">${description}</p></div><span class="rounded-full ${matches.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"} px-2 py-1 text-[11px] font-semibold">${matches.length ? `${matches.length} installed` : "Not installed"}</span></div>${matches.map((item) => `<div class="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3"><div><p class="text-sm font-semibold text-slate-800">${item.name}</p><p class="text-xs text-slate-500">${item.environment} · ${item.status}${item.last_error_code ? ` · ${item.last_error_code}` : ""}</p></div><button type="button" data-test="${item.id}" class="text-xs font-semibold text-blue-600">Test</button></div>`).join("")}<form data-connector="${key}" class="mt-4 space-y-2"><input name="name" required maxlength="100" placeholder="Installation name" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><input name="credentials" type="password" required placeholder="Enter credentials as key=value, comma separated" aria-label="${fields}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><p class="text-[11px] leading-4 text-slate-500">Required fields: ${fields}</p><button class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">Install connector</button></form></article>`; }).join(""); commerceConnectors.querySelectorAll("[data-connector]").forEach((form) => form.addEventListener("submit", async (event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const credentials = Object.fromEntries(String(data.get("credentials")).split(",").map((entry) => entry.split("=").map((part) => part.trim())).filter(([key, value]) => key && value)); try { await commerceApi(`/v1/projects/${encodeURIComponent(commerceProject.value)}/connectors`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ connector_key: event.currentTarget.dataset.connector, name: data.get("name"), credentials }) }); showCommerceMessage("Connector installed securely."); await renderCommerce(); } catch (error) { showCommerceMessage(error.message, true); } })); commerceConnectors.querySelectorAll("[data-test]").forEach((button) => button.addEventListener("click", async () => { try { const data = await commerceApi(`/v1/projects/${encodeURIComponent(commerceProject.value)}/connectors/${encodeURIComponent(button.dataset.test)}/test`, { method: "POST" }); showCommerceMessage(data.ok ? "Connector credentials are configured." : data.error_code || "Connector credentials need attention.", !data.ok); await renderCommerce(); } catch (error) { showCommerceMessage(error.message, true); } })); } catch (error) { showCommerceMessage(error.message, true); } }
-  async function loadCommerceProjects() { try { const data = await commerceApi("/v1/projects"); const projects = data.projects || []; const requested = new URLSearchParams(window.location.search).get("projectId"); const stored = window.sessionStorage.getItem("dlogicai_active_project"); const active = projects.find((project) => project.id === requested) || projects.find((project) => project.id === stored) || projects[0]; commerceProject.replaceChildren(...projects.map((project) => { const option = document.createElement("option"); option.value = project.id; option.textContent = `${project.name} (${project.environment})`; return option; })); if (active) commerceProject.value = active.id; await renderCommerce(); } catch { commerceMessage.textContent = "Sign in to manage marketplace connectors."; commerceMessage.className = "mt-4 min-h-5 text-sm text-slate-500"; } }
-  commerceProject.addEventListener("change", renderCommerce);
-  loadCommerceProjects();
-</script>

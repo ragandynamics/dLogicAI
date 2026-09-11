@@ -3,8 +3,9 @@ import { z } from "zod";
 import type { Env, HonoVariables } from "../types";
 import { id, now, jsonError } from "../utils/common";
 import { requireDashboard } from "../utils/auth";
-import { canManageTenantServices } from "../tenant-roles";
+import { canManageTenantSecrets, canManageTenantServices } from "../tenant-roles";
 import { getOwnedProject } from "../services/channels";
+import { encryptText } from "../utils/crypto";
 
 const router = new Hono<{ Bindings: Env; Variables: HonoVariables }>();
 
@@ -29,7 +30,8 @@ router.get("/v1/projects/:projectId/chat-services", async (c) => {
 
   const services = await c.env.DB.prepare(
     `SELECT id, project_id, name, description, environment, status,
-      default_language, ai_provider, model, provider_mode, provider_credential_id, enable_intelligence,
+      default_language, ai_provider, model, provider_mode, provider_credential_id,
+      encrypted_llm_key IS NOT NULL AS llm_key_configured, enable_intelligence,
         enable_emotion_analysis, enable_upsell_analysis, created_at, updated_at
      FROM chat_services
      WHERE project_id = ? AND tenant_id = ?
@@ -69,6 +71,7 @@ router.post("/v1/projects/:projectId/chat-services", async (c) => {
       model: z.string().trim().min(1).max(120).default("auto"),
       provider_mode: z.enum(["managed", "tenant"]).default("managed"),
       provider_credential_id: z.string().trim().max(120).optional().nullable(),
+      llm_key: z.string().trim().min(10).max(1000).optional().nullable(),
       enable_intelligence: z.boolean().default(true),
       enable_emotion_analysis: z.boolean().default(true),
       enable_upsell_analysis: z.boolean().default(true),
@@ -83,15 +86,18 @@ router.post("/v1/projects/:projectId/chat-services", async (c) => {
       400
     );
   }
+  if (parsed.data.llm_key && !canManageTenantSecrets(auth.role)) {
+    return jsonError(c, "FORBIDDEN", "Owner or admin access is required to save an LLM key.", 403);
+  }
 
   const serviceId = id("svc");
   const timestamp = now();
   await c.env.DB.prepare(
     `INSERT INTO chat_services
       (id, tenant_id, project_id, name, description, environment, status,
-       default_language, ai_provider, model, provider_mode, provider_credential_id, enable_intelligence,
+       default_language, ai_provider, model, provider_mode, provider_credential_id, encrypted_llm_key, enable_intelligence,
        enable_emotion_analysis, enable_upsell_analysis, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       serviceId,
@@ -105,6 +111,7 @@ router.post("/v1/projects/:projectId/chat-services", async (c) => {
       parsed.data.model,
       parsed.data.provider_mode,
       parsed.data.provider_credential_id || null,
+      parsed.data.llm_key ? await encryptText(parsed.data.llm_key, c.env.MASTER_KEY) : null,
       parsed.data.enable_intelligence ? 1 : 0,
       parsed.data.enable_emotion_analysis ? 1 : 0,
       parsed.data.enable_upsell_analysis ? 1 : 0,
@@ -118,7 +125,14 @@ router.post("/v1/projects/:projectId/chat-services", async (c) => {
       chat_service: {
         id: serviceId,
         project_id: project.id,
-        ...parsed.data,
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        default_language: parsed.data.default_language,
+        model: parsed.data.model,
+        llm_key_configured: Boolean(parsed.data.llm_key),
+        enable_intelligence: parsed.data.enable_intelligence,
+        enable_emotion_analysis: parsed.data.enable_emotion_analysis,
+        enable_upsell_analysis: parsed.data.enable_upsell_analysis,
         environment: project.environment,
         status: "active",
         created_at: timestamp,
@@ -135,7 +149,8 @@ router.get("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
 
   const service = await c.env.DB.prepare(
     `SELECT id, project_id, name, description, environment, status,
-      default_language, ai_provider, model, provider_mode, provider_credential_id, enable_intelligence,
+      default_language, ai_provider, model, provider_mode, provider_credential_id,
+      encrypted_llm_key IS NOT NULL AS llm_key_configured, enable_intelligence,
         enable_emotion_analysis, enable_upsell_analysis, created_at, updated_at
      FROM chat_services
      WHERE id = ? AND project_id = ? AND tenant_id = ?`
@@ -148,7 +163,13 @@ router.get("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
     .first();
 
   if (!service) return jsonError(c, "NOT_FOUND", "Chat Service not found.", 404);
-  return c.json({ chat_service: service });
+  return c.json({
+    chat_service: service,
+    managed_providers: {
+      google: Boolean(c.env.GEMINI_API_KEY),
+      openai: Boolean(c.env.OPENAI_API_KEY),
+    },
+  });
 });
 
 router.patch("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
@@ -172,6 +193,7 @@ router.patch("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
       model: z.string().trim().min(1).max(120),
       provider_mode: z.enum(["managed", "tenant"]),
       provider_credential_id: z.string().trim().max(120).optional().nullable(),
+      llm_key: z.string().trim().min(10).max(1000).optional().nullable(),
       enable_intelligence: z.boolean(),
       enable_emotion_analysis: z.boolean(),
       enable_upsell_analysis: z.boolean(),
@@ -186,10 +208,14 @@ router.patch("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
       400
     );
   }
+  if (parsed.data.llm_key !== undefined && !canManageTenantSecrets(auth.role)) {
+    return jsonError(c, "FORBIDDEN", "Owner or admin access is required to change an LLM key.", 403);
+  }
 
   const result = await c.env.DB.prepare(
     `UPDATE chat_services
      SET name = ?, description = ?, default_language = ?, ai_provider = ?, model = ?, provider_mode = ?, provider_credential_id = ?,
+       encrypted_llm_key = CASE WHEN ? = 1 THEN ? ELSE encrypted_llm_key END,
        enable_intelligence = ?, enable_emotion_analysis = ?, enable_upsell_analysis = ?, updated_at = ?
      WHERE id = ? AND project_id = ? AND tenant_id = ?`
   )
@@ -201,6 +227,8 @@ router.patch("/v1/projects/:projectId/chat-services/:serviceId", async (c) => {
       parsed.data.model,
       parsed.data.provider_mode,
       parsed.data.provider_credential_id || null,
+      parsed.data.llm_key !== undefined ? 1 : 0,
+      parsed.data.llm_key ? await encryptText(parsed.data.llm_key, c.env.MASTER_KEY) : null,
       parsed.data.enable_intelligence ? 1 : 0,
       parsed.data.enable_emotion_analysis ? 1 : 0,
       parsed.data.enable_upsell_analysis ? 1 : 0,
@@ -282,6 +310,7 @@ router.put(
   async (c) => {
     const auth = await requireDashboard(c);
     if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+    if (!canManageTenantServices(auth.role)) return jsonError(c, "FORBIDDEN", "Workspace service management access is required.", 403);
     const channel = c.req.param("channel");
     if (channel !== "web") {
       return jsonError(c, "INVALID_REQUEST", "Unsupported channel.", 400);

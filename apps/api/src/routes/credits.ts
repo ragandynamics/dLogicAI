@@ -3,6 +3,8 @@ import type { Env, HonoVariables } from "../types";
 import { jsonError } from "../utils/common";
 import { requireDashboard } from "../utils/auth";
 import { getCreditAccount, totalAvailableCredits } from "../services/credits";
+import { canManageTenantSecrets } from "../tenant-roles";
+import { now } from "../utils/common";
 
 const router = new Hono<{ Bindings: Env; Variables: HonoVariables }>();
 
@@ -68,6 +70,24 @@ router.get("/v1/billing/credits/ledger", async (c) => {
     .all();
 
   return c.json({ ledger: results });
+});
+
+router.patch("/v1/billing/credits/auto-topup", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+  if (!canManageTenantSecrets(auth.role)) {
+    return jsonError(c, "FORBIDDEN", "Owner or admin access is required.", 403);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  if (typeof body.enabled !== "boolean") {
+    return jsonError(c, "INVALID_REQUEST", "enabled must be true or false.", 400);
+  }
+  await c.env.DB.prepare(
+    `UPDATE credit_accounts
+     SET auto_topup_enabled = ?, auto_topup_threshold = 90, updated_at = ?
+     WHERE tenant_id = ?`
+  ).bind(body.enabled ? 1 : 0, now(), auth.tenantId).run();
+  return c.json({ auto_topup: { enabled: body.enabled, threshold_percent: 90 } });
 });
 
 export const creditRoutes = router;

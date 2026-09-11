@@ -1,4 +1,6 @@
+import { auditMutation } from "../services/audit";
 import { Hono } from "hono";
+import { featureAllowed } from '../services/platform-features';
 import { z } from "zod";
 import type {
   ChannelQueueMessage,
@@ -82,20 +84,20 @@ router.post(
     }
     if (
       parsed.data.channel === "whatsapp" &&
-      (!parsed.data.credentials.app_secret || !parsed.data.webhook_secret)
+      (!parsed.data.credentials.app_secret?.trim() || !parsed.data.credentials.access_token?.trim() || !parsed.data.credentials.phone_number_id?.trim() || !parsed.data.webhook_secret)
     ) {
       return jsonError(
         c,
         "INVALID_REQUEST",
-        "WhatsApp app_secret and webhook_secret are required.",
+        "WhatsApp app secret, access token, phone number ID and webhook secret are required.",
         400
       );
     }
-    if (parsed.data.channel === "telegram" && !parsed.data.webhook_secret) {
+    if (parsed.data.channel === "telegram" && (!parsed.data.credentials.bot_token?.trim() || !parsed.data.webhook_secret || !/^[A-Za-z0-9_-]+$/.test(parsed.data.webhook_secret))) {
       return jsonError(
         c,
         "INVALID_REQUEST",
-        "Telegram webhook_secret is required.",
+        "Telegram bot token and a webhook secret containing only letters, numbers, underscores and hyphens are required.",
         400
       );
     }
@@ -110,10 +112,9 @@ router.post(
       ? await sha256(parsed.data.webhook_secret)
       : null;
     try {
-      await c.env.DB.prepare(
-        `INSERT INTO channel_installations
-       (id, tenant_id, project_id, chat_service_id, channel, external_account_id, encrypted_credentials, webhook_secret_hash, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      await auditMutation(c, auth, "channel.created", "channel_installation", installationId, c.env.DB.prepare(`INSERT INTO channel_installations
+       (id, tenant_id, project_id, chat_service_id, channel, external_account_id, encrypted_credentials, webhook_secret_hash, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'testing', ?, ?)`
       )
         .bind(
           installationId,
@@ -126,8 +127,7 @@ router.post(
           webhookSecretHash,
           timestamp,
           timestamp
-        )
-        .run();
+        ));
     } catch (error) {
       if (String(error).toLowerCase().includes("unique")) {
         return jsonError(
@@ -145,7 +145,7 @@ router.post(
           id: installationId,
           channel: parsed.data.channel,
           external_account_id: parsed.data.external_account_id,
-          status: "active",
+          status: "testing",
           created_at: timestamp,
         },
       },
@@ -153,6 +153,39 @@ router.post(
     );
   }
 );
+
+router.post(
+  "/v1/projects/:projectId/chat-services/:serviceId/channel-installations/:installationId/activate",
+  async (c) => {
+    const auth = await requireDashboard(c);
+    if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+    if (!canManageTenantServices(auth.role)) {
+      return jsonError(c, "FORBIDDEN", "Tenant workspace access is required.", 403);
+    }
+    const channel=await c.env.DB.prepare('SELECT channel FROM channel_installations WHERE id=? AND tenant_id=? AND project_id=? AND chat_service_id=?').bind(c.req.param('installationId'),auth.tenantId,c.req.param('projectId'),c.req.param('serviceId')).first<{channel:string}>();
+    if(channel && !await featureAllowed(c.env.DB,'channel.'+channel.channel,auth.tenantId))return jsonError(c,'FEATURE_UNAVAILABLE','Channel activation is currently unavailable.',403);
+    const result = await auditMutation(c, auth, "channel.activated", "channel_installation", c.req.param("installationId"), c.env.DB.prepare(`UPDATE channel_installations SET status = 'active', updated_at = ?
+       WHERE id = ? AND tenant_id = ? AND project_id = ? AND chat_service_id = ? AND status IN ('testing', 'inactive')`
+    )
+      .bind(now(), c.req.param("installationId"), auth.tenantId, c.req.param("projectId"), c.req.param("serviceId")));
+    if (!result.meta.changes) {
+      return jsonError(c, "NOT_FOUND", "Inactive or testing channel installation not found.", 404);
+    }
+    return c.json({ activated: true, status: "active" });
+  }
+);
+
+
+router.post("/v1/projects/:projectId/chat-services/:serviceId/channel-installations/:installationId/deactivate", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+  if (!canManageTenantServices(auth.role)) return jsonError(c, "FORBIDDEN", "Channel management access is required.", 403);
+  const result = await auditMutation(c, auth, "channel.deactivated", "channel_installation", c.req.param("installationId"),
+    c.env.DB.prepare("UPDATE channel_installations SET status = 'inactive', updated_at = ? WHERE id = ? AND tenant_id = ? AND project_id = ? AND chat_service_id = ? AND status = 'active'")
+      .bind(now(), c.req.param("installationId"), auth.tenantId, c.req.param("projectId"), c.req.param("serviceId")));
+  if (!result.meta.changes) return jsonError(c, "NOT_FOUND", "Active channel installation not found.", 404);
+  return c.json({ status: "inactive" });
+});
 
 router.delete(
   "/v1/projects/:projectId/chat-services/:serviceId/channel-installations/:installationId",
@@ -162,16 +195,14 @@ router.delete(
     if (!canManageTenantServices(auth.role)) {
       return jsonError(c, "FORBIDDEN", "Tenant workspace access is required.", 403);
     }
-    const result = await c.env.DB.prepare(
-      `DELETE FROM channel_installations WHERE id = ? AND tenant_id = ? AND project_id = ? AND chat_service_id = ?`
+    const result = await auditMutation(c, auth, "channel.removed", "channel_installation", c.req.param("installationId"), c.env.DB.prepare(`DELETE FROM channel_installations WHERE id = ? AND tenant_id = ? AND project_id = ? AND chat_service_id = ?`
     )
       .bind(
         c.req.param("installationId"),
         auth.tenantId,
         c.req.param("projectId"),
         c.req.param("serviceId")
-      )
-      .run();
+      ));
     if (!result.meta.changes) {
       return jsonError(c, "NOT_FOUND", "Channel installation not found.", 404);
     }
@@ -184,7 +215,7 @@ router.get("/v1/webhooks/channels/whatsapp/:installationId", async (c) => {
   const token = c.req.query("hub.verify_token") || "";
   const challenge = c.req.query("hub.challenge") || "";
   const installation = await c.env.DB.prepare(
-    `SELECT webhook_secret_hash FROM channel_installations WHERE id = ? AND channel = 'whatsapp' AND status = 'active'`
+    `SELECT webhook_secret_hash FROM channel_installations WHERE id = ? AND channel = 'whatsapp' AND status IN ('testing', 'active')`
   )
     .bind(c.req.param("installationId"))
     .first<{ webhook_secret_hash: string | null }>();
@@ -244,17 +275,19 @@ router.post("/v1/webhooks/channels/:channel/:installationId", async (c) => {
   const events = adapter.parseInbound(rawBody);
   const payloadHash = await sha256(rawBody);
   const acceptedEvents: string[] = [];
+  const acceptedEventIds = new Map<string, string>();
   const externalEventIds = events.length
     ? [...new Set(events.map((event) => event.external_message_id))]
     : [payloadHash];
   for (const externalEventId of externalEventIds) {
     try {
+      const eventId = id("event");
       const inserted = await c.env.DB.prepare(
         `INSERT OR IGNORE INTO channel_events (id, tenant_id, installation_id, channel, external_event_id, event_type, payload_hash, received_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
         .bind(
-          id("event"),
+          eventId,
           installation.tenant_id,
           installation.id,
           channel,
@@ -266,6 +299,7 @@ router.post("/v1/webhooks/channels/:channel/:installationId", async (c) => {
         .run();
       if (Number(inserted.meta.changes || 0) === 1) {
         acceptedEvents.push(externalEventId);
+        acceptedEventIds.set(externalEventId, eventId);
       }
     } catch (error) {
       throw error;
@@ -342,6 +376,7 @@ router.post("/v1/webhooks/channels/:channel/:installationId", async (c) => {
         type: "channel.inbound",
         tenantId: installation.tenant_id,
         installationId: installation.id,
+        eventId: acceptedEventIds.get(event.external_message_id),
         conversationId: mapping.conversation_id,
         messageId,
         text: event.text,

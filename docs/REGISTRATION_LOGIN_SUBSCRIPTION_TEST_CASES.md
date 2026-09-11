@@ -30,8 +30,8 @@
 | LOG-004 | P0 | Session isolation | Create two tenants and memberships for one user in the database. Verify the available tenant-selection workflow binds the session to the selected tenant and never resolves a tenant by arbitrary membership ordering. If tenant selection is unavailable, mark the case `BLOCKED` against the pending organization-switching work rather than accepting arbitrary selection. |
 | LOG-005 | P1 | Logout | Sign in, call logout, then reload `/dashboard` and call `/v1/me`. Verify the session is rejected and `/v1/me` returns 401. |
 | BILL-001 | P0 | Billing authorization | As an owner, open the subscription page and load the subscription and catalog. Verify both authenticated requests succeed and only the active tenant's subscription is returned. |
-| BILL-002 | P0 | Billing authorization | As an admin, change from Free to a paid plan. Verify the API returns `checkout_required` and does not directly activate the paid plan before Stripe confirmation. |
-| BILL-003 | P0 | Billing authorization | As a member, attempt subscription change, Stripe Checkout, and billing portal requests. Verify each returns 403 `FORBIDDEN` and no billing state changes. |
+| BILL-002 | P0 | Billing authorization | As the tenant super admin (`owner`), change from Free to a paid plan. Verify the API returns `checkout_required` and does not directly activate the paid plan before Stripe confirmation. |
+| BILL-003 | P0 | Billing authorization | As an admin, developer, billing, or sales-operations user, attempt subscription change, Stripe Checkout, Checkout confirmation, and billing portal requests. Verify each returns 403 `FORBIDDEN` and no billing state changes. |
 | BILL-004 | P1 | Billing authorization | Without a session, request subscription, Checkout, and portal endpoints. Verify each returns 401 `UNAUTHORIZED`. |
 | BILL-005 | P0 | Checkout URL validation | Submit Checkout success/cancel URLs from an unconfigured origin, a different path, or a non-HTTP scheme. Verify the API returns 400 `INVALID_URL` and does not create a Stripe Checkout session. |
 | BILL-006 | P1 | Checkout | Submit configured billing-page URLs and a valid paid plan as owner/admin. Verify the response contains a Stripe Checkout URL and session ID. |
@@ -68,29 +68,42 @@ A release must not proceed if any P0 case fails. For Stripe cases, record the St
 
 ## Result record
 
+Partial UAT execution on 2026-09-04 used
+`https://dlogicai-api-uat.rdproducts-adm1.workers.dev`. The rejected-request
+checks left the database at six users, zero Stripe events, zero reserved credit
+reservations, and zero reserved usage events. Authenticated and browser-driven
+cases requiring email links, TOTP entry, invitation recipients, Stripe-hosted
+Checkout, or an interactive UI remain blocked pending a designated test
+account/inbox or usable browser session. An isolated API-driven account verified
+registration, login/logout, tenant-bound session state, Free subscription,
+project/API-key creation, and billing guards. Its managed-AI request returned a
+normalized `PROVIDER_ERROR`; the 626-micro credit reservation was fully refunded,
+the usage event was marked failed, and matching reservation/refund ledger entries
+were recorded.
+
 | ID | Result (`PASS`/`FAIL`/`BLOCKED`) | Evidence or defect reference |
 |---|---|---|
-| REG-001 |  |  |
-| REG-002 |  |  |
+| REG-001 | PASS | API returned 201 with a tenant-bound session; UAT D1 contains the user, owner membership, Free subscription, and 2,000,000-micro initial credit grant. |
+| REG-002 | PASS | UAT returned 400 for malformed JSON; user count remained six. |
 | REG-003 |  |  |
 | REG-004 |  |  |
 | REG-005 |  |  |
-| LOG-001 |  |  |
-| LOG-002 |  |  |
+| LOG-001 | PASS | API login succeeded and `/v1/me` returned the same user with an explicit active tenant. |
+| LOG-002 | PASS | Incorrect password returned 401 and did not create an authenticated session. |
 | LOG-003 |  |  |
 | LOG-004 |  |  |
-| LOG-005 |  |  |
-| BILL-001 |  |  |
+| LOG-005 | PASS | Logout succeeded and the prior session subsequently received 401 from `/v1/me`. |
+| BILL-001 | PASS | Owner session loaded the tenant's Free subscription; public plans and canonical catalog agreed. |
 | BILL-002 |  |  |
 | BILL-003 |  |  |
-| BILL-004 |  |  |
-| BILL-005 |  |  |
+| BILL-004 | PASS | UAT subscription, Checkout, and portal endpoints each returned 401 without a session. |
+| BILL-005 | BLOCKED | Cross-origin/non-HTTP URLs returned 400, but response-code and no-Checkout-session evidence still need capture in the final browser/Stripe run. |
 | BILL-006 |  |  |
 | BILL-007 |  |  |
 | BILL-008 |  |  |
 | BILL-009 |  |  |
 | BILL-010 |  |  |
-| BILL-011 |  |  |
+| BILL-011 | PASS | UAT returned 400 for an invalid/expired signature and `stripe_events` remained empty. |
 | BILL-012 |  |  |
 | BILL-013 |  |  |
 | BILL-014 |  |  |
@@ -101,7 +114,7 @@ A release must not proceed if any P0 case fails. For Stripe cases, record the St
 | BILL-019 |  |  |
 | BILL-020 |  |  |
 | BILL-021 |  |  |
-| BILL-022 |  |  |
+| BILL-022 | PASS | `/v1/plans` and `/v1/billing/catalog` returned the same four plan IDs: Free, Builder, Growth, and Business. |
 | BILL-023 |  |  |
 | BILL-024 |  |  |
 | BILL-025 |  |  |

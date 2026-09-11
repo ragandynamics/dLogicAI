@@ -4,6 +4,8 @@ export type Env = {
   DB: D1Database;
   DATA_BUCKET: R2Bucket;
   CHANNEL_QUEUE?: Queue;
+  BUSINESS_QUEUE?: Queue;
+  CONNECTOR_ALLOWED_ORIGINS?: string;
   SESSION_SECRET: string;
   MASTER_KEY: string;
   OPENAI_API_KEY?: string;
@@ -18,6 +20,9 @@ export type Env = {
   STRIPE_SECRET_KEY?: string;
   CORS_ORIGINS?: string;
   APP_ORIGINS?: string;
+  TELEGRAM_MANAGER_BOT_TOKEN?: string;
+  TELEGRAM_MANAGER_USERNAME?: string;
+  TELEGRAM_MANAGER_WEBHOOK_SECRET?: string;
 };
 
 export type AuthContext = {
@@ -40,6 +45,7 @@ export type ChannelQueueMessage = {
   type: "channel.inbound" | "channel.outbound";
   tenantId: string;
   installationId: string;
+  eventId?: string;
   conversationId?: string;
   messageId?: string;
   text: string;

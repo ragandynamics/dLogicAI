@@ -133,12 +133,24 @@ router.post("/v1/auth/register", async (c) => {
         id,
         name,
         slug,
+        company_name,
+        country,
+        organization_type,
         created_at,
         updated_at
       )
-      VALUES (?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?,?)
       `
-    ).bind(tenantId, workspaceName, slug, t, t),
+    ).bind(
+      tenantId,
+      workspaceName,
+      slug,
+      company_name.trim() || null,
+      country.trim() || null,
+      company_name.trim() ? "corporate" : "individual",
+      t,
+      t
+    ),
 
     c.env.DB.prepare(
       `
@@ -207,10 +219,10 @@ router.post("/v1/auth/register", async (c) => {
     sendEmail(
       c,
       normalizedEmail,
-      "Verify your dLogicAI email",
-      `<p>Welcome to dLogicAI.</p><p><a href="${appUrl(
+      "Verify your dLogicFlow email",
+      `<p>Welcome to dLogicFlow.</p><p><a href="${appUrl(
         c,
-        `/v1/auth/email/verify?token=${encodeURIComponent(
+        `/api/v1/auth/email/verify?token=${encodeURIComponent(
           verificationToken.value
         )}`
       )}">Verify your email address</a></p><p>This link expires in 24 hours.</p>`
@@ -258,10 +270,10 @@ router.post("/v1/auth/email/verification", async (c) => {
         sendEmail(
           c,
           user.email,
-          "Verify your dLogicAI email",
+          "Verify your dLogicFlow email",
           `<p><a href="${appUrl(
             c,
-            `/v1/auth/email/verify?token=${encodeURIComponent(token.value)}`
+            `/api/v1/auth/email/verify?token=${encodeURIComponent(token.value)}`
           )}">Verify your email address</a></p>`
         )
       );
@@ -323,7 +335,7 @@ router.post("/v1/auth/password/forgot", async (c) => {
         sendEmail(
           c,
           user.email,
-          "Reset your dLogicAI password",
+          "Reset your dLogicFlow password",
           `<p><a href="${appUrl(
             c,
             `/reset-password?token=${encodeURIComponent(token.value)}`
@@ -407,10 +419,10 @@ router.post("/v1/auth/2fa/enroll", async (c) => {
   )
     .bind(auth.userId, encrypted, t, t)
     .run();
-  const label = encodeURIComponent(`dLogicAI:${user.email}`);
+  const label = encodeURIComponent(`dLogicFlow:${user.email}`);
   return c.json({
     secret,
-    otpauth_url: `otpauth://totp/${label}?secret=${secret}&issuer=dLogicAI&algorithm=SHA1&digits=6&period=30`,
+    otpauth_url: `otpauth://totp/${label}?secret=${secret}&issuer=dLogicFlow&algorithm=SHA1&digits=6&period=30`,
   });
 });
 
@@ -525,10 +537,12 @@ router.post("/v1/auth/login", async (c) => {
   }
 
   const memberships = await c.env.DB.prepare(
-    "SELECT tenant_id, role FROM memberships WHERE user_id = ? ORDER BY created_at ASC"
+    `SELECT m.tenant_id, m.role, t.name, t.slug
+     FROM memberships m JOIN tenants t ON t.id = m.tenant_id
+     WHERE m.user_id = ? ORDER BY m.created_at ASC`
   )
     .bind(row.id)
-    .all<{ tenant_id: string; role: string }>();
+    .all<{ tenant_id: string; role: string; name: string; slug: string }>();
   if (!memberships.results.length) {
     return jsonError(
       c,

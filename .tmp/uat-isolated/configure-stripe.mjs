@@ -1,0 +1,16 @@
+import {execFileSync} from 'node:child_process';
+import {writeFileSync} from 'node:fs';
+const cli=(args)=>JSON.parse(execFileSync('stripe.exe',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
+const endpointUrl='https://dlogicai-api-uat.rdproducts-adm1.workers.dev/v1/billing/stripe/webhook';
+const existing=cli(['webhook_endpoints','list','--limit','100']).data;
+if(existing.some(x=>x.url===endpointUrl)) throw new Error('UAT endpoint already exists; refusing duplicate');
+const identity=cli(['whoami','--format','json']);
+if(identity.account_id!=='acct_1U5k4fLylcGjyFHf'||!identity.test_mode_key?.available) throw new Error('Unexpected Stripe sandbox');
+const endpoint=cli(['webhook_endpoints','create','--url',endpointUrl,'--description','dLogicFlow UAT subscription lifecycle','--enabled-events','checkout.session.completed','--enabled-events','customer.subscription.updated','--enabled-events','customer.subscription.deleted','--api-version','2026-07-29.dahlia']);
+if(endpoint.livemode||!endpoint.secret) throw new Error('Unexpected endpoint mode');
+writeFileSync('.tmp/uat-isolated/stripe-endpoint.json',JSON.stringify({id:endpoint.id,url:endpoint.url,livemode:endpoint.livemode}));
+const {token}=JSON.parse(execFileSync('cmd.exe',['/c','pnpm.cmd exec wrangler auth token --json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
+const response=await fetch('https://api.cloudflare.com/client/v4/accounts/55f76f1c600f103ac0eed0d2c4bf36e9/workers/scripts/dlogicai-api-uat/secrets',{method:'PUT',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'STRIPE_WEBHOOK_SECRET',type:'secret_text',text:endpoint.secret})});
+const result=await response.json();
+if(!response.ok||!result.success) throw new Error(`UAT secret configuration failed ${response.status}`);
+console.log(JSON.stringify({endpointId:endpoint.id,mode:'test',uatSecretConfigured:true}));

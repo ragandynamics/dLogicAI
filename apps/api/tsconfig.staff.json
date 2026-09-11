@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "../staff-shared/**/*.ts",
+    "../system-admin/src/**/*.ts",
+    "../operations/src/**/*.ts",
+    "../billing/src/**/*.ts"
+  ]
+}

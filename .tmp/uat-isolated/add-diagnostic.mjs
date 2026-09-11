@@ -1,0 +1,12 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const path='.tmp/uat-isolated/';
+const original=readFileSync(path+'release.mjs','utf8');
+const old='    const bodyText = await response.text();\n    throw new Error(`Gemini error ${response.status}: ${bodyText}`);';
+if(original.split(old).length!==2) throw new Error('Diagnostic context mismatch');
+const patched=original.replace(old,'    console.error("DLOGICAI_UPSTREAM_FAILURE", { provider: "google", status: response.status });\n    await response.body?.cancel().catch(() => undefined);\n    throw new Error(`Gemini request failed (${response.status})`);');
+writeFileSync(path+'release-v1.mjs',original);
+writeFileSync(path+'release.mjs',patched);
+writeFileSync(path+'release-test.mjs',patched+'\nexport { registerBillingRoutes, callGemini };\n');
+writeFileSync(path+'release-manifest-v1.json',readFileSync(path+'release-manifest.json'));
+writeFileSync(path+'release-manifest.json',JSON.stringify({worker:'dlogicai-api-uat',originalSha256:createHash('sha256').update(original).digest('hex'),releaseSha256:createHash('sha256').update(patched).digest('hex'),changes:['Safe upstream Gemini HTTP-status diagnostic'],migrations:[]},null,2));

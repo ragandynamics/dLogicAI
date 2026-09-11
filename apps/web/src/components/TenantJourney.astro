@@ -1,0 +1,6 @@
+---
+const links = [["channels","Channels"],["conversations","Conversations"],["usage","Usage"],["analytics","Analytics"],["audit","Audit logs"]];
+---
+<nav aria-label="Tenant operations" class="mt-5 flex flex-wrap gap-2">
+{links.map(([path,label]) => <a href={`/dashboard/${path}`} aria-current={Astro.url.pathname === `/dashboard/${path}` ? "page" : undefined} class:list={["rounded-lg border px-3 py-2 text-sm font-medium", Astro.url.pathname === `/dashboard/${path}` ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"]}>{label}</a>)}
+</nav>

@@ -2,13 +2,14 @@
 import { API_BASE_URL } from "../types/env";
 import AppLayout from "../layouts/AppLayout.astro";
 import { companyName, siteTagline } from "../lib/site";
+const visitorCountryCode = Astro.request.headers.get("cf-ipcountry")?.toUpperCase() || "";
 ---
 
 <AppLayout title="Create account">
   <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6">
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
-        <a href="/" class="inline-flex items-center gap-3"><img src="/favicon.ico" alt="{companyName} logo" class="h-8 w-8 rounded-md object-cover" /><div><div class="text-2xl font-extrabold tracking-tight text-slate-950">{companyName}</div><div class="mt-1 text-xs leading-4 text-slate-500">{siteTagline}</div></div></a>
+        <a href="/" class="inline-flex items-center gap-3"><img src="/favicon.ico" alt={`${companyName} logo`} class="h-8 w-8 rounded-md object-cover" /><div><div class="text-2xl font-extrabold tracking-tight text-slate-950">{companyName}</div><div class="mt-1 text-xs leading-4 text-slate-500">{siteTagline}</div></div></a>
         <p class="mt-2 text-sm text-slate-600">
           Create your workspace and start free. Upgrade when you are ready.
         </p>
@@ -192,7 +193,9 @@ import { companyName, siteTagline } from "../lib/site";
     </div>
   </div>
 
-  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL, visitorCountryCode: Astro.request.headers.get("cf-ipcountry")?.toUpperCase() || "" }}>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL, visitorCountryCode }}>
+    const nextPath = new URLSearchParams(window.location.search).get("next");
+    const safeNextPath = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
     function getDefaultCountryName(preferredCountryCode) {
       const regionCode = preferredCountryCode || ((navigator.languages && navigator.languages[0]) || navigator.language || "en-US").split("-").pop()?.toUpperCase();
 
@@ -251,7 +254,7 @@ import { companyName, siteTagline } from "../lib/site";
           throw new Error(data?.error?.message || "Registration failed.");
         }
 
-        window.location.href = "/dashboard";
+        window.location.href = safeNextPath;
       } catch (err) {
         if (error) {
           error.textContent =

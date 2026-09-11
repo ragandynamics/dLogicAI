@@ -15,3 +15,8 @@ dLogicAI provides a secure, scalable conversational API that applications can in
 
 ## Core Capabilities
 Authentication, organizations, projects, API keys, conversations, AI responses, usage/quota, billing, AI credits, BYOK, connectors, Chat Services, intelligence and observability.
+
+## Tenant user stories
+
+The canonical role, channel, interaction-engine, governance, entitlement, and
+tenant journey stories are defined in `docs/23_TENANT_USER_STORIES.md`.

@@ -5,3 +5,7 @@ interface ImportMetaEnv {
 	readonly PUBLIC_TURNSTILE_ENABLED?: string;
 	readonly PUBLIC_COMPANY_NAME?: string;
 }
+
+declare module "cloudflare:workers" {
+	export const env: Record<string, unknown>;
+}

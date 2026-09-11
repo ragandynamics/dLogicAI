@@ -1,0 +1,17 @@
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+const { token } = JSON.parse(execFileSync('cmd.exe', ['/c','pnpm.cmd exec wrangler auth token --json'], {encoding:'utf8',stdio:['ignore','pipe','pipe']}));
+if (!token) throw new Error('No token');
+const base='https://api.cloudflare.com/client/v4/accounts/55f76f1c600f103ac0eed0d2c4bf36e9/workers/scripts/dlogicai-api-uat';
+const response = await fetch(base, {headers:{Authorization:`Bearer ${token}`}});
+if (!response.ok) throw new Error(`Download failed ${response.status}`);
+const contentType=response.headers.get('content-type');
+const raw=await response.text();
+writeFileSync('.tmp/uat-isolated/deployed-worker.raw',raw);
+writeFileSync('.tmp/uat-isolated/content-type.txt',contentType);
+console.log(JSON.stringify({contentType,bytes:raw.length}));
+const settingsResponse=await fetch(base+'/settings',{headers:{Authorization:`Bearer ${token}`}});
+if(!settingsResponse.ok) throw new Error(`Settings failed ${settingsResponse.status}`);
+const settings=await settingsResponse.json();
+writeFileSync('.tmp/uat-isolated/deployed-settings.json',JSON.stringify(settings.result,null,2));
+console.log('Settings saved locally');

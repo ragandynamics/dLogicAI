@@ -4,6 +4,7 @@ import { id, now, jsonError } from "../utils/common";
 import { requireDashboard } from "../utils/auth";
 import { canManageTenantServices } from "../tenant-roles";
 import { dialogFlowSchema } from "../services/dialog";
+import { featureAllowed } from '../services/platform-features';
 
 const router = new Hono<{ Bindings: Env; Variables: HonoVariables }>();
 
@@ -85,6 +86,7 @@ router.put(
       )
       .first();
     if (!service) return jsonError(c, "NOT_FOUND", "Chat Service not found.", 404);
+    if(!await featureAllowed(c.env.DB,'chat.guided',auth.tenantId))return jsonError(c,'FEATURE_UNAVAILABLE','Publishing guided chatbots is currently unavailable. Existing flows are retained.',403);
     const parsed = dialogFlowSchema.safeParse(
       await c.req.json().catch(() => ({}))
     );

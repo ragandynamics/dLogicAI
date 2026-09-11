@@ -5,6 +5,7 @@ const { serviceId } = Astro.params;
 ---
 
 <AppLayout title="Chat Service" appShell={true}>
+  <a id="interactive-forms-link" href={`/dashboard/forms?serviceId=${encodeURIComponent(serviceId || '')}`} class="text-sm text-blue-700 underline">Interactive Forms — build and review submissions</a>
   <div class="flex items-center justify-between gap-4">
     <div>
       <a href="/dashboard/services" class="text-sm font-medium text-blue-600 hover:text-blue-700">← Chat Services</a>
@@ -23,10 +24,14 @@ const { serviceId } = Astro.params;
         <label class="block font-medium text-slate-700">Name<input id="name" name="name" required maxlength="120" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
         <label class="block font-medium text-slate-700">Description<textarea id="description" name="description" maxlength="500" rows="3" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5"></textarea></label>
         <label class="block font-medium text-slate-700">Default language<input id="language" name="default_language" required maxlength="32" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
-        <label class="block font-medium text-slate-700">AI provider<input id="provider" name="ai_provider" required maxlength="64" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
-        <label class="block font-medium text-slate-700">Provisioning<select id="provider_mode" name="provider_mode" class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="managed">dLogicAI managed AI</option><option value="tenant">Use my tenant LLM key</option></select></label>
-        <p class="text-xs leading-5 text-slate-500">Tenant mode uses the selected project credential from AI Providers. Keys are encrypted and never displayed.</p>
+        <label class="block font-medium text-slate-700">LLM key <span class="font-normal text-slate-500">(optional)</span><input id="llm_key" name="llm_key" type="password" autocomplete="new-password" minlength="10" maxlength="1000" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" placeholder="Google Gemini API key" /></label>
+        <p id="provider-help" class="text-xs leading-5 text-slate-500">Leave this blank to use dLogicFlow managed Gemini. A saved key is encrypted and never displayed.</p>
+        <label id="remove-key-row" class="hidden items-center gap-2 text-xs text-slate-600"><input id="remove_key" type="checkbox" class="h-4 w-4" /> Remove the saved LLM key and use managed AI</label>
         <label class="block font-medium text-slate-700">Model<input id="model" name="model" required maxlength="120" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <label class="flex items-start gap-3 font-medium text-slate-800"><input id="auto_topup" type="checkbox" class="mt-0.5 h-4 w-4" /><span>Enable managed AI credit auto top-up<span class="mt-1 block text-xs font-normal leading-5 text-slate-600">Save a 90% low-balance trigger to reduce service disruption.</span></span></label>
+          <p id="auto-topup-note" class="mt-2 text-xs text-slate-500"></p>
+        </div>
       </div>
     </div>
 
@@ -50,6 +55,9 @@ const { serviceId } = Astro.params;
   </div>
 
   <script is:inline define:vars={{ serviceId, apiBaseUrl: API_BASE_URL }}>
+    let hasSavedLlmKey = false;
+    document.querySelector('#interactive-forms-link').href += '&projectId=' + encodeURIComponent(new URLSearchParams(location.search).get('projectId') || '');
+
     async function loadService() {
       const error = document.querySelector("#error");
       try {
@@ -59,35 +67,68 @@ const { serviceId } = Astro.params;
         }
         const data = await response.json();
         const service = data.chat_service;
+        hasSavedLlmKey = Boolean(service.llm_key_configured);
         document.querySelector("#service-name").textContent = service.name;
         document.querySelector("#service-description").textContent = service.description || "No description provided.";
         document.querySelector("#service-status").textContent = service.status;
         document.querySelector("#name").value = service.name;
         document.querySelector("#description").value = service.description || "";
         document.querySelector("#language").value = service.default_language;
-        document.querySelector("#provider").value = service.ai_provider;
-        document.querySelector("#provider_mode").value = service.provider_mode || "managed";
         document.querySelector("#model").value = service.model;
         document.querySelector("#intelligence").checked = Boolean(service.enable_intelligence);
         document.querySelector("#emotion").checked = Boolean(service.enable_emotion_analysis);
         document.querySelector("#upsell").checked = Boolean(service.enable_upsell_analysis);
         document.querySelector("#channels-link").href = `/dashboard/channels?projectId=${encodeURIComponent(new URLSearchParams(window.location.search).get("projectId") || "")}&serviceId=${encodeURIComponent(service.id)}`;
         document.querySelector("#flow-designer-link").href = `/dashboard/dialog-flows/${encodeURIComponent(service.id)}?projectId=${encodeURIComponent(new URLSearchParams(window.location.search).get("projectId") || "")}`;
+        const removeRow = document.querySelector("#remove-key-row");
+        removeRow.classList.toggle("hidden", !hasSavedLlmKey);
+        removeRow.classList.toggle("flex", hasSavedLlmKey);
+        document.querySelector("#provider-help").textContent = hasSavedLlmKey
+          ? "A service LLM key is configured. Leave this field blank to keep it, or select Remove to use managed Gemini."
+          : "Leave this blank to use dLogicFlow managed Gemini. A saved key is encrypted and never displayed.";
+        await loadAutoTopup();
       } catch (e) {
         error.textContent = e.message;
         error.classList.remove("hidden");
       }
     }
+    async function loadAutoTopup() {
+      const response = await fetch(`${apiBaseUrl}/v1/billing/credits`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      document.querySelector("#auto_topup").checked = Boolean(data.credits?.auto_topup?.enabled);
+      updateAutoTopupState();
+    }
+    function updateAutoTopupState() {
+      const customKeyWillRemain = (hasSavedLlmKey && !document.querySelector("#remove_key").checked) || Boolean(document.querySelector("#llm_key").value.trim());
+      const toggle = document.querySelector("#auto_topup");
+      toggle.disabled = customKeyWillRemain;
+      document.querySelector("#auto-topup-note").textContent = customKeyWillRemain
+        ? "Auto top-up applies only when managed AI is used."
+        : "Automatic charging also requires the managed credit-pack billing workflow, which is not active yet.";
+    }
+    document.querySelector("#llm_key")?.addEventListener("input", updateAutoTopupState);
+    document.querySelector("#remove_key")?.addEventListener("change", updateAutoTopupState);
     document.querySelector("#content")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const serviceForm = event.currentTarget;
       const form = new FormData(serviceForm);
       const projectId = new URLSearchParams(window.location.search).get("projectId") || "";
-      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(serviceId)}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), description: form.get("description"), default_language: form.get("default_language"), ai_provider: form.get("ai_provider"), model: form.get("model"), provider_mode: form.get("provider_mode"), provider_credential_id: null, enable_intelligence: form.get("enable_intelligence") === "on", enable_emotion_analysis: form.get("enable_emotion_analysis") === "on", enable_upsell_analysis: form.get("enable_upsell_analysis") === "on" }) });
+      const enteredKey = String(form.get("llm_key") || "").trim();
+      const removeKey = document.querySelector("#remove_key").checked;
+      const payload = { name: form.get("name"), description: form.get("description"), default_language: form.get("default_language"), ai_provider: "google", model: form.get("model"), provider_mode: "managed", provider_credential_id: null, enable_intelligence: form.get("enable_intelligence") === "on", enable_emotion_analysis: form.get("enable_emotion_analysis") === "on", enable_upsell_analysis: form.get("enable_upsell_analysis") === "on" };
+      if (enteredKey) payload.llm_key = enteredKey;
+      else if (removeKey) payload.llm_key = null;
+      const response = await fetch(`${apiBaseUrl}/v1/projects/${encodeURIComponent(projectId)}/chat-services/${encodeURIComponent(serviceId)}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const message = document.querySelector("#save-message");
       const data = await response.json().catch(() => ({}));
-      message.textContent = response.ok ? "Changes saved." : data?.error?.message || "Unable to save changes.";
-      message.className = `mt-3 min-h-5 text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
+      let saved = response.ok;
+      if (saved && !((hasSavedLlmKey && !removeKey) || enteredKey)) {
+        const topupResponse = await fetch(`${apiBaseUrl}/v1/billing/credits/auto-topup`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: document.querySelector("#auto_topup").checked }) });
+        saved = topupResponse.ok;
+      }
+      message.textContent = saved ? "Changes saved." : data?.error?.message || "Unable to save changes.";
+      message.className = `mt-3 min-h-5 text-sm ${saved ? "text-emerald-600" : "text-red-600"}`;
+      if (saved) loadService();
     });
     document.querySelector("#delete-service")?.addEventListener("click", async () => {
       if (!window.confirm("Delete this Chat Service?")) return;

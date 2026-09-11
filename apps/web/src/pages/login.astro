@@ -64,6 +64,8 @@ import { companyName, siteTagline } from "../lib/site";
   </div>
 
   <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+    const nextPath = new URLSearchParams(window.location.search).get("next");
+    const safeNextPath = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
     document.querySelector("#toggle-password")?.addEventListener("click", () => {
       const input = document.querySelector("#password");
       const button = document.querySelector("#toggle-password");
@@ -117,7 +119,7 @@ import { companyName, siteTagline } from "../lib/site";
           throw new Error(data?.error?.message || "Sign in failed.");
         }
 
-        window.location.href = "/dashboard";
+        window.location.href = safeNextPath;
       } catch (err) {
         if (error) {
           error.textContent =

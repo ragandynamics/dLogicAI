@@ -1,0 +1,9 @@
+{
+  "worker": "dlogicai-api-uat",
+  "originalSha256": "7abf0ca96276551babeff914ca11d72440f2bcd89e8a360c140ad317165223cf",
+  "releaseSha256": "84b990f7f0c915141d81088c56a77adb6932c0d83f80561463c98563432a077c",
+  "changes": [
+    "Safe upstream Gemini HTTP-status diagnostic"
+  ],
+  "migrations": []
+}

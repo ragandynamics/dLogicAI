@@ -35,6 +35,11 @@ import AppLayout from "../../layouts/AppLayout.astro";
       </div>
 
       <div>
+        <label class="text-sm font-medium text-slate-700">Country</label>
+        <input id="country" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+      </div>
+
+      <div>
         <label class="text-sm font-medium text-slate-700">Default language</label>
         <input id="default_language" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="en" />
       </div>
@@ -70,7 +75,12 @@ import AppLayout from "../../layouts/AppLayout.astro";
       document.querySelector("#company_name").value = o.company_name || "";
       document.querySelector("#billing_email").value = o.billing_email || "";
       document.querySelector("#organization_type").value = o.organization_type || "individual";
+      document.querySelector("#country").value = o.country || "";
       document.querySelector("#default_language").value = o.default_language || "en";
+      if (data.role !== "owner" && data.role !== "admin") {
+        form.querySelectorAll("input, select, button").forEach((control) => control.disabled = true);
+        message.textContent = "Workspace settings are read-only for your role.";
+      }
     }
 
     form.addEventListener("submit", async (event) => {
@@ -85,6 +95,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
           company_name: document.querySelector("#company_name").value || null,
           billing_email: document.querySelector("#billing_email").value || null,
           organization_type: document.querySelector("#organization_type").value,
+          country: document.querySelector("#country").value || null,
           default_language: document.querySelector("#default_language").value || "en",
         }),
       });

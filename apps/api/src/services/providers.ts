@@ -2,6 +2,7 @@ import type { AppContext, AuthContext, Env, ProviderResult } from "../types";
 import { decryptText } from "../utils/crypto";
 
 export const MANAGED_MAX_OUTPUT_TOKENS = 1024;
+export const MANAGED_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 export async function detectLanguage(text: string): Promise<string> {
   if (/[\u0B80-\u0BFF]/.test(text)) {
@@ -237,6 +238,7 @@ export async function callOpenAI(
           ]),
     ],
     stream,
+    ...(stream ? { stream_options: { include_usage: true } } : {}),
     ...(maxOutputTokens ? { max_output_tokens: maxOutputTokens } : {}),
   };
 
@@ -353,8 +355,9 @@ export async function callGemini(
   });
 
   if (!response.ok) {
-    const bodyText = await response.text();
-    throw new Error(`Gemini error ${response.status}: ${bodyText}`);
+    console.error("DLOGICAI_UPSTREAM_FAILURE", { provider: "google", status: response.status });
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error(`Gemini request failed (${response.status})`);
   }
 
   if (stream) {
@@ -406,11 +409,12 @@ export async function resolveProvider(
     provider_mode: string;
     ai_provider: string;
     provider_credential_id: string | null;
+    encrypted_llm_key: string | null;
   } | null = null;
 
   if (chatServiceId) {
     service = await c.env.DB.prepare(
-      `SELECT provider_mode, ai_provider, provider_credential_id
+      `SELECT provider_mode, ai_provider, provider_credential_id, encrypted_llm_key
        FROM chat_services WHERE id = ? AND project_id = ? AND tenant_id = ?`
     )
       .bind(chatServiceId, projectId, auth.tenantId)
@@ -420,9 +424,17 @@ export async function resolveProvider(
       service.ai_provider === "auto" ? requestedProvider : service.ai_provider;
   }
 
-  if (service?.provider_mode === "managed") {
-    credential = null;
-  } else if (service?.provider_mode === "tenant") {
+  if (service?.encrypted_llm_key) {
+    return {
+      mode: "byok",
+      provider: "google",
+      apiKey: await decryptText(service.encrypted_llm_key, c.env.MASTER_KEY),
+    };
+  }
+
+  if (service?.provider_mode === "tenant") {
+    // Tenant-wide credentials are the current model. Keep project credentials
+    // as a compatibility fallback for services configured before migration.
     credential = await c.env.DB.prepare(
       `SELECT provider, encrypted_credentials FROM tenant_llm_credentials
        WHERE tenant_id = ? AND status = 'active'
@@ -444,29 +456,23 @@ export async function resolveProvider(
         .first();
     }
     if (!credential) {
+      credential = await c.env.DB.prepare(
+        `SELECT provider, encrypted_credentials FROM provider_credentials
+         WHERE tenant_id = ? AND project_id = ? AND status = 'active'
+           AND (? IS NULL OR provider = ?)
+         ORDER BY created_at DESC LIMIT 1`
+      )
+        .bind(
+          auth.tenantId,
+          projectId,
+          requestedProvider || null,
+          requestedProvider || null
+        )
+        .first();
+    }
+    if (!credential) {
       return { mode: "byok", provider: requestedProvider || "", apiKey: undefined };
     }
-  } else if (service?.provider_mode === "tenant" && service.provider_credential_id) {
-    credential = await c.env.DB.prepare(
-      `SELECT provider, encrypted_credentials FROM provider_credentials
-       WHERE id = ? AND tenant_id = ? AND project_id = ? AND status = 'active'`
-    )
-      .bind(service.provider_credential_id, auth.tenantId, projectId)
-      .first();
-  } else if (service?.provider_mode === "tenant") {
-    credential = await c.env.DB.prepare(
-      `SELECT provider, encrypted_credentials FROM provider_credentials
-       WHERE tenant_id = ? AND project_id = ? AND status = 'active'
-         AND (? IS NULL OR provider = ?)
-       ORDER BY created_at DESC LIMIT 1`
-    )
-      .bind(
-        auth.tenantId,
-        projectId,
-        requestedProvider || null,
-        requestedProvider || null
-      )
-      .first();
   } else if (!service) {
     credential = await c.env.DB.prepare(
       `SELECT provider, encrypted_credentials FROM provider_credentials
@@ -480,39 +486,6 @@ export async function resolveProvider(
         requestedProvider || null,
         requestedProvider || null
       )
-      .first();
-  } else if (requestedProvider) {
-    credential = await c.env.DB.prepare(
-      `
-      SELECT
-        provider,
-        encrypted_credentials
-      FROM provider_credentials
-      WHERE tenant_id = ?
-        AND project_id = ?
-        AND provider = ?
-        AND status = 'active'
-      ORDER BY created_at DESC
-      LIMIT 1
-      `
-    )
-      .bind(auth.tenantId, projectId, requestedProvider)
-      .first();
-  } else {
-    credential = await c.env.DB.prepare(
-      `
-      SELECT
-        provider,
-        encrypted_credentials
-      FROM provider_credentials
-      WHERE tenant_id = ?
-        AND project_id = ?
-        AND status = 'active'
-      ORDER BY created_at DESC
-      LIMIT 1
-      `
-    )
-      .bind(auth.tenantId, projectId)
       .first();
   }
 

@@ -42,10 +42,11 @@ export const ALL: APIRoute = async ({ request, params }) => {
   const workerEnv = env as unknown as WebWorkerEnv;
   const apiService = workerEnv.API;
   const apiOrigin = workerEnv.API_BASE_URL || API_ORIGIN;
+  const search = new URL(request.url).search;
 
   const response = apiService
-    ? await apiService.fetch(`https://api.internal${upstreamPath}`, init)
-    : await fetch(`${apiOrigin}${upstreamPath}`, init);
+    ? await apiService.fetch(`https://api.internal${upstreamPath}${search}`, init)
+    : await fetch(`${apiOrigin}${upstreamPath}${search}`, init);
 
   const out = new Response(response.body, response);
 

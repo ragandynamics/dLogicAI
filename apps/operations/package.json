@@ -1,0 +1,9 @@
+{
+  "name": "@dlogicai/operations",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --dir ../api exec wrangler dev --config ../operations/wrangler.jsonc",
+    "build": "pnpm --dir ../api exec wrangler deploy --dry-run --config ../operations/wrangler.jsonc --outdir ../../.tmp/staff-build/operations"
+  }
+}

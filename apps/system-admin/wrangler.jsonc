@@ -1,0 +1,26 @@
+{
+  "name": "dlogicai-system-admin",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    "port": 8791
+  },
+  "vars": {
+    "ACCESS_ISSUER": "",
+    "ACCESS_AUD": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dlogicai-staff-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../api/migrations"
+    }
+  ]
+}

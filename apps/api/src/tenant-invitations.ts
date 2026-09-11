@@ -2,7 +2,7 @@ import { normalizeTenantRole } from './tenant-roles';
 
 export type TenantInvitationAcceptanceResult =
   | { ok: true; tenantId: string; role: string; membershipId: string }
-  | { ok: false; code: 'INVALID_INVITATION' | 'EXPIRED_INVITATION' | 'ALREADY_MEMBER' | 'USER_NOT_FOUND'; };
+  | { ok: false; code: 'INVALID_INVITATION' | 'INVITATION_ACCOUNT_MISMATCH' | 'INVITATION_ALREADY_ACCEPTED' | 'EXPIRED_INVITATION' | 'ALREADY_MEMBER' | 'USER_NOT_FOUND'; };
 
 export async function acceptTenantInvitation(
   db: any,
@@ -31,7 +31,11 @@ export async function acceptTenantInvitation(
   }
 
   if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
-    return { ok: false, code: 'INVALID_INVITATION' };
+    return { ok: false, code: 'INVITATION_ACCOUNT_MISMATCH' };
+  }
+
+  if (invitation.status === 'accepted') {
+    return { ok: false, code: 'INVITATION_ALREADY_ACCEPTED' };
   }
 
   if (invitation.status !== 'pending') {

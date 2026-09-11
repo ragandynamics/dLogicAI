@@ -1,5 +1,5 @@
 {
-  "name": "@dLogicAI/api",
+  "name": "@dlogicflow/api",
   "private": true,
   "type": "module",
   "scripts": {

@@ -142,6 +142,7 @@ router.get("/v1/usage", async (c) => {
     `
     SELECT
       COUNT(*) AS requests,
+      COALESCE(SUM(request_count), 0) AS messages,
       COALESCE(SUM(input_tokens), 0) AS input_tokens,
       COALESCE(SUM(output_tokens), 0) AS output_tokens,
       COALESCE(SUM(provider_cost_micros), 0) AS provider_cost_micros,
@@ -154,6 +155,12 @@ router.get("/v1/usage", async (c) => {
   )
     .bind(auth.tenantId, since)
     .first();
+
+  const widgetCount = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS widgets FROM web_widgets WHERE tenant_id = ?`
+  )
+    .bind(auth.tenantId)
+    .first<{ widgets: number }>();
 
   const byProvider = await c.env.DB.prepare(
     `
@@ -176,7 +183,7 @@ router.get("/v1/usage", async (c) => {
     .all();
 
   return c.json({
-    summary,
+    summary: { ...summary, widgets: Number(widgetCount?.widgets || 0) },
     by_provider: byProvider.results,
   });
 });

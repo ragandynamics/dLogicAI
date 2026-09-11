@@ -15,6 +15,50 @@ import { acceptTenantInvitation } from "../tenant-invitations";
 
 const router = new Hono<{ Bindings: Env; Variables: HonoVariables }>();
 
+router.get("/v1/organization", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+  const organization = await c.env.DB.prepare(
+    `SELECT id, name, slug, company_name, country, billing_email,
+            organization_type, default_language, status
+     FROM tenants WHERE id = ? LIMIT 1`
+  ).bind(auth.tenantId).first();
+  if (!organization) return jsonError(c, "NOT_FOUND", "Workspace not found.", 404);
+  return c.json({ organization, role: normalizeTenantRole(auth.role) });
+});
+
+router.patch("/v1/organization", async (c) => {
+  const auth = await requireDashboard(c);
+  if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
+  if (!canManageTenantSecrets(auth.role)) {
+    return jsonError(c, "FORBIDDEN", "Super admin or admin access is required.", 403);
+  }
+  const parsed = z.object({
+    name: z.string().trim().min(1).max(160),
+    company_name: z.string().trim().max(160).nullable().optional(),
+    country: z.string().trim().max(100).nullable().optional(),
+    billing_email: z.string().trim().email().max(255).nullable().optional(),
+    organization_type: z.enum(["individual", "corporate"]),
+    default_language: z.string().trim().min(2).max(20).default("en"),
+  }).safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return jsonError(c, "INVALID_REQUEST", parsed.error.issues[0]?.message || "Invalid workspace settings.", 400);
+  const values = parsed.data;
+  await c.env.DB.prepare(
+    `UPDATE tenants SET name=?, company_name=?, country=?, billing_email=?,
+       organization_type=?, default_language=?, updated_at=? WHERE id=?`
+  ).bind(
+    values.name,
+    values.company_name || null,
+    values.country || null,
+    values.billing_email || null,
+    values.organization_type,
+    values.default_language,
+    now(),
+    auth.tenantId
+  ).run();
+  return c.json({ updated: true });
+});
+
 router.get("/v1/organization/members", async (c) => {
   const auth = await requireDashboard(c);
   if (!auth) return jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
@@ -88,7 +132,7 @@ router.post("/v1/organization/invitations", async (c) => {
   const parsed = z
     .object({
       email: z.string().trim().email().max(255),
-      role: z.enum(["admin", "member"]).default("member"),
+      role: z.enum(["admin", "developer", "billing", "sales_operations"]).default("developer"),
     })
     .safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
@@ -105,7 +149,7 @@ router.post("/v1/organization/invitations", async (c) => {
     return jsonError(
       c,
       "INVALID_REQUEST",
-      "Only admin or member roles may be assigned to tenant members.",
+      "Only admin, developer, billing, or sales operations roles may be assigned.",
       400
     );
   }
@@ -162,8 +206,8 @@ router.post("/v1/organization/invitations", async (c) => {
     sendEmail(
       c,
       email,
-      "You were invited to join a dLogicAI workspace",
-      `<p>You have been invited to join a dLogicAI workspace.</p><p><a href="${appUrl(
+      "You were invited to join a dLogicFlow workspace",
+      `<p>You have been invited to join a dLogicFlow workspace.</p><p><a href="${appUrl(
         c,
         `/accept-invite?token=${encodeURIComponent(token)}`
       )}">Accept your invitation</a></p><p>This invitation expires on ${new Date(
@@ -212,6 +256,8 @@ router.post("/v1/organization/invitations/accept", async (c) => {
   if (!result.ok) {
     const map: Record<string, ContentfulStatusCode> = {
       INVALID_INVITATION: 400,
+      INVITATION_ACCOUNT_MISMATCH: 403,
+      INVITATION_ALREADY_ACCEPTED: 409,
       EXPIRED_INVITATION: 410,
       ALREADY_MEMBER: 409,
       USER_NOT_FOUND: 404,

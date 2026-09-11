@@ -37,6 +37,12 @@ importers:
         specifier: ^4.127.0
         version: 4.127.0(@cloudflare/workers-types@4.20260702.1)
 
+  apps/billing: {}
+
+  apps/operations: {}
+
+  apps/system-admin: {}
+
   apps/web:
     dependencies:
       '@astrojs/check':
@@ -48,7 +54,7 @@ importers:
       '@astrojs/react':
         specifier: ^6.0.4
         version: 6.0.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(esbuild@0.28.2)(jiti@2.7.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(yaml@2.9.0)
-      '@dlogicai/shared':
+      '@dlogicflow/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@xyflow/react':

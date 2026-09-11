@@ -1,4 +1,5 @@
-﻿import { z } from "zod";
+import { z } from "zod";
+import { subscriptionPeriod } from "./stripe-period";
 
 export type BillingRouteDeps = {
   requireDashboard: (c: any) => Promise<{ userId: string; tenantId: string; role: string } | null>;
@@ -7,8 +8,8 @@ export type BillingRouteDeps = {
   now: () => number;
 };
 
-function isBillingAdmin(auth: { role: string }) {
-  return auth.role === "owner" || auth.role === "admin";
+function canManageSubscription(auth: { role: string }) {
+  return auth.role === "owner";
 }
 
 function allowedAppUrl(env: any, value: string) {
@@ -53,11 +54,7 @@ async function stripeSubscriptionPeriod(env: any, subscriptionId: string) {
   const response = await stripeFetch(env, `subscriptions/${encodeURIComponent(subscriptionId)}`, { method: "GET" });
   if (!response.ok) return { start: null, end: null, trialEnd: null };
   const subscription = await response.json<any>();
-  return {
-    start: Number(subscription.current_period_start || 0) * 1000 || null,
-    end: Number(subscription.current_period_end || 0) * 1000 || null,
-    trialEnd: Number(subscription.trial_end || 0) * 1000 || null,
-  };
+  return subscriptionPeriod(subscription);
 }
 
 async function cancelStripeSubscription(env: any, subscriptionId: string) {
@@ -151,7 +148,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     if (!subscription) return deps.jsonError(c, "SUBSCRIPTION_NOT_FOUND", "No subscription is configured for this tenant.", 404);
 
     const memberVisibleSubscription = { ...subscription } as Record<string, unknown>;
-    if (!isBillingAdmin(auth)) {
+    if (!canManageSubscription(auth)) {
       delete memberVisibleSubscription.external_customer_id;
       delete memberVisibleSubscription.external_subscription_id;
     }
@@ -162,7 +159,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.post("/v1/billing/subscription/change", async (c: any) => {
     const auth = await deps.requireDashboard(c);
     if (!auth) return deps.jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
-    if (!isBillingAdmin(auth)) return deps.jsonError(c, "FORBIDDEN", "Owner or admin access is required for billing changes.", 403);
+    if (!canManageSubscription(auth)) return deps.jsonError(c, "FORBIDDEN", "Super admin access is required for billing changes.", 403);
     const planId = String((await c.req.json().catch(() => ({}))).plan_id || "").trim();
     const plan = await c.env.DB.prepare(`
       SELECT p.id, p.monthly_price_cents,
@@ -250,6 +247,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
     const auth = await deps.requireDashboard(c);
     if (!auth) return deps.jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
     const connectorId = c.req.param("connectorId");
+    if (connectorId === "conn_business_api") return deps.jsonError(c, "RUNTIME_METER_ONLY", "Business connector usage is recorded by the runtime.", 403);
     const body = await c.req.json().catch(() => ({}));
     const quantity = Number(body.quantity);
     const idem = String(c.req.header("Idempotency-Key") || body.idempotency_key || "").trim();
@@ -282,7 +280,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.post("/v1/billing/stripe/checkout", async (c: any) => {
     const auth = await deps.requireDashboard(c);
     if (!auth) return deps.jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
-    if (!isBillingAdmin(auth)) return deps.jsonError(c, "FORBIDDEN", "Owner or admin access is required for billing changes.", 403);
+    if (!canManageSubscription(auth)) return deps.jsonError(c, "FORBIDDEN", "Super admin access is required for billing changes.", 403);
     if (!c.env.STRIPE_SECRET_KEY) return deps.jsonError(c, "STRIPE_NOT_CONFIGURED", "Stripe checkout is not configured for this environment.", 503);
     const body = await c.req.json().catch(() => ({}));
     const planId = String(body.plan_id || "").trim();
@@ -345,7 +343,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.post("/v1/billing/stripe/portal", async (c: any) => {
     const auth = await deps.requireDashboard(c);
     if (!auth) return deps.jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
-    if (!isBillingAdmin(auth)) return deps.jsonError(c, "FORBIDDEN", "Owner or admin access is required for billing changes.", 403);
+    if (!canManageSubscription(auth)) return deps.jsonError(c, "FORBIDDEN", "Super admin access is required for billing changes.", 403);
     if (!c.env.STRIPE_SECRET_KEY) return deps.jsonError(c, "STRIPE_NOT_CONFIGURED", "Stripe billing portal is not configured for this environment.", 503);
     const body = await c.req.json().catch(() => ({}));
     const returnUrl = String(body.return_url || "").trim();
@@ -361,7 +359,7 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
   app.post("/v1/billing/stripe/checkout/confirm", async (c: any) => {
     const auth = await deps.requireDashboard(c);
     if (!auth) return deps.jsonError(c, "UNAUTHORIZED", "Authentication required.", 401);
-    if (!isBillingAdmin(auth)) return deps.jsonError(c, "FORBIDDEN", "Owner or admin access is required for billing changes.", 403);
+    if (!canManageSubscription(auth)) return deps.jsonError(c, "FORBIDDEN", "Super admin access is required for billing changes.", 403);
     if (!c.env.STRIPE_SECRET_KEY) return deps.jsonError(c, "STRIPE_NOT_CONFIGURED", "Stripe checkout is not configured for this environment.", 503);
     const sessionId = String((await c.req.json().catch(() => ({}))).session_id || "").trim();
     if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return deps.jsonError(c, "INVALID_REQUEST", "A valid Checkout session ID is required.", 400);
@@ -423,8 +421,9 @@ export function registerBillingRoutes(app: any, deps: BillingRouteDeps) {
         const s = event.data.object;
         const status = event.type.endsWith("deleted") ? "canceled" : String(s.status || "active");
         const trialPlanId = s.metadata?.plan_id || null;
-        const trialEnd = Number(s.trial_end || 0) * 1000 || null;
-        await c.env.DB.prepare(`UPDATE subscriptions SET status=?, plan_id=CASE WHEN ?='active' THEN COALESCE(?, plan_id) ELSE plan_id END, pending_plan_id=CASE WHEN ?='active' OR ?='canceled' THEN NULL ELSE pending_plan_id END, trial_ends_at=CASE WHEN ?='active' OR ?='canceled' THEN NULL ELSE COALESCE(?, trial_ends_at) END, current_period_start=MAX(current_period_start, ?), current_period_end=?, external_customer_id=?, external_subscription_id=?, updated_at=? WHERE external_subscription_id=?`).bind(status, status, trialPlanId, status, status, status, status, trialEnd, Number(s.current_period_start || 0) * 1000, Number(s.current_period_end || 0) * 1000, s.customer || null, s.id || null, deps.now(), s.id).run();
+        const period = subscriptionPeriod(s);
+        const trialEnd = period.trialEnd;
+        await c.env.DB.prepare(`UPDATE subscriptions SET status=?, plan_id=CASE WHEN ?='active' THEN COALESCE(?, plan_id) ELSE plan_id END, pending_plan_id=CASE WHEN ?='active' OR ?='canceled' THEN NULL ELSE pending_plan_id END, trial_ends_at=CASE WHEN ?='active' OR ?='canceled' THEN NULL ELSE COALESCE(?, trial_ends_at) END, current_period_start=MAX(current_period_start, COALESCE(?, current_period_start)), current_period_end=COALESCE(?, current_period_end), external_customer_id=?, external_subscription_id=?, updated_at=? WHERE external_subscription_id=?`).bind(status, status, trialPlanId, status, status, status, status, trialEnd, period.start, period.end, s.customer || null, s.id || null, deps.now(), s.id).run();
       }
       await c.env.DB.prepare(`UPDATE stripe_events SET processed_at=?, status='processed' WHERE id=?`).bind(deps.now(), event.id).run();
     } catch (e: any) {

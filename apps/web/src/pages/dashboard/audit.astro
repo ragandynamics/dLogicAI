@@ -1,0 +1,12 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import OperationsReport from "../../components/OperationsReport.astro";
+import TenantJourney from "../../components/TenantJourney.astro";
+---
+<AppLayout title="Audit logs" appShell={true}>
+  <h1 class="text-3xl font-bold text-slate-950">Audit logs</h1>
+  <p class="mt-3 max-w-4xl text-sm leading-6 text-slate-600">Review recorded workspace actions. This read-only history is available to owners, admins and billing members. Channel setup and activation events are recorded from this release onward; earlier history may be incomplete. Credentials and message content are excluded.</p>
+  <TenantJourney />
+  
+  <OperationsReport view="audit" />
+</AppLayout>

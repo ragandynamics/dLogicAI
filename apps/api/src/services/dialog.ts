@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AppContext } from "../types";
 import { id, now } from "../utils/common";
+import { proposeFlowActions } from './business-flow-actions';
 
 export const dialogFlowSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -279,7 +280,8 @@ export async function persistDialogRuntime(
   conversationId: string,
   projectId: string,
   serviceId: string,
-  runtime: DialogRuntime
+  runtime: DialogRuntime,
+  allowBusinessActions = true
 ): Promise<void> {
   const timestamp = now();
   await c.env.DB.prepare(
@@ -301,6 +303,7 @@ export async function persistDialogRuntime(
     .run();
 
   if (runtime.completedOutcomeKey) {
+    if(allowBusinessActions)await proposeFlowActions(c,projectId,serviceId,conversationId,runtime.flowVersionId,runtime.completedOutcomeKey,runtime.slots);
     await c.env.DB.prepare(
       `INSERT OR IGNORE INTO conversation_outcome_events (id, tenant_id, conversation_id, flow_version_id, outcome_key, evidence_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
     )

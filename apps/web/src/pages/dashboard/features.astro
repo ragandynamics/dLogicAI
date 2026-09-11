@@ -1,0 +1,16 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { API_BASE_URL } from '../../types/env';
+---
+<AppLayout title="Feature availability" appShell={true}>
+ <h1 class="text-3xl font-bold">Feature availability</h1>
+ <p class="mt-3 text-slate-600">Platform availability is separate from your plan, service activation and channel compatibility. Unavailable features retain their saved configurations and records.</p>
+ <p id="status" class="mt-4" role="status">Loading…</p>
+ <div id="features" class="mt-6 grid gap-4 md:grid-cols-2"></div>
+ <script is:inline define:vars={{apiBaseUrl:API_BASE_URL}}>
+ fetch(apiBaseUrl+'/v1/features',{credentials:'include'}).then(async response=>{if(!response.ok)throw new Error('Unable to load availability. Sign in or try again.');return response.json();}).then(data=>{
+  document.getElementById('status').textContent='Current availability';
+  for(const feature of data.features){const card=document.createElement('article');card.className='rounded-xl border bg-white p-5';const title=document.createElement('h2');title.className='font-bold';title.textContent=feature.name;const status=document.createElement('p');status.textContent=feature.available?'Available':'Unavailable';const reason=document.createElement('p');reason.className='mt-2 text-sm text-slate-600';reason.textContent=feature.reason;card.append(title,status,reason);document.getElementById('features').append(card);}
+ }).catch(error=>document.getElementById('status').textContent=error.message);
+ </script>
+</AppLayout>

@@ -1,0 +1,9 @@
+{
+  "name": "@dlogicai/billing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --dir ../api exec wrangler dev --config ../billing/wrangler.jsonc",
+    "build": "pnpm --dir ../api exec wrangler deploy --dry-run --config ../billing/wrangler.jsonc --outdir ../../.tmp/staff-build/billing"
+  }
+}
