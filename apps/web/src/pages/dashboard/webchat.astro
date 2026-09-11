@@ -1,0 +1,68 @@
+---
+import TenantJourney from "../../components/TenantJourney.astro";
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+<AppLayout title="Web Chat" appShell={true}>
+  <h1 class="text-3xl font-bold">Web Chat</h1>
+  <TenantJourney />
+  <p class="mt-2 text-slate-600">1. Choose a service → 2. Save and preview → 3. Install the code → 4. Activate → 5. Test a real reply.</p>
+  <div class="mt-6 grid gap-4 md:grid-cols-2"><label>Project<select id="project" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" disabled></select></label><label>Chat Service<select id="service" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" disabled></select></label></div>
+  <div class="mt-4 flex flex-wrap items-end gap-3"><label class="min-w-64 flex-1">Web Chat widget<select id="widget" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" disabled></select></label><button id="new-widget" type="button" class="rounded-lg border border-blue-200 bg-white px-4 py-3 font-semibold text-blue-700">New widget</button></div>
+  <p id="notice" role="status" class="mt-3 text-sm text-slate-600"></p>
+  <a href="/dashboard/services" class="text-sm text-blue-700 underline">Manage Chat Services</a>
+  <div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <form id="settings" class="rounded-xl border border-slate-200 bg-white p-6">
+      <h2 class="text-lg font-semibold">Appearance and website</h2>
+      <fieldset id="fields" disabled class="mt-4 space-y-4">
+        <label class="block">Widget name<input id="name" required maxlength="80" value="Website widget" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" /><span class="text-xs text-slate-500">Shown only in your dLogicFlow workspace.</span></label>
+        <label class="block">Website URL<input id="origin" type="url" required placeholder="https://www.example.com" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" /><span class="text-xs text-slate-500">A pasted page URL is reduced to its website origin. HTTP is supported only for localhost testing.</span></label>
+        <label class="block">Chat title<input id="title" required maxlength="80" value="Chat with us" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" /></label>
+        <label class="block">Welcome message<textarea id="welcome" required maxlength="300" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3">Welcome. How can we help?</textarea></label>
+        <div class="flex gap-6"><label>Color<input id="color" type="color" value="#2563eb" class="mt-2 block" /></label><label>Position<select id="position" class="mt-2 block rounded-lg border border-slate-300 bg-white p-2"><option value="right">Bottom right</option><option value="left">Bottom left</option></select></label></div>
+        <section class="space-y-4 border-t border-slate-200 pt-5" aria-label="Widget conversation settings">
+          <h3 class="font-semibold">Conversation and replies</h3>
+          <p class="text-sm text-slate-500">Saved separately for this widget. Templates guide the AI; they do not execute bookings or guarantee a fixed sequence.</p>
+          <label class="block">Conversation flow template<select id="conversation_template" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3"><option value="service">Default — use Chat Service flow</option><option value="support">Customer support</option><option value="leads">Lead qualification</option><option value="booking">Booking enquiry</option><option value="custom">Custom conversation</option></select></label>
+          <label class="block">Additional conversation instructions<textarea id="conversation_instructions" maxlength="2000" rows="3" placeholder="For example: ask for the order reference before troubleshooting." class="mt-2 block w-full rounded-lg border border-slate-300 p-3"></textarea><span class="text-xs text-slate-500">Optional guidance for this widget. Do not include credentials or confidential information.</span></label>
+          <label class="block"><input id="business_data_enabled" type="checkbox" checked /> Use business data attached to this Chat Service</label>
+          <label class="block">Default reply format<select id="output_template" class="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3"><option value="default">Default — conversational paragraphs</option><option value="concise">Concise answer</option><option value="bullets">Bullet points</option><option value="steps">Step-by-step instructions</option></select></label>
+          <p class="text-xs text-slate-500">Preview the selected format, then save. Live tests use the current selections and credits. Public replies use saved settings; changing this widget does not change other widgets.</p>
+        </section>
+        <button class="rounded bg-blue-600 px-4 py-3 text-white" type="submit">Save settings</button>
+      </fieldset>
+    </form>
+    <section class="rounded-xl border border-slate-200 bg-slate-50 p-6"><h2 class="text-lg font-semibold">Instant preview</h2><label class="mt-2 block text-sm"><input id="live" type="checkbox" /> Live test with this widget’s settings (uses credits)</label><p class="mt-2 text-xs text-slate-500">Appearance updates instantly. With live test off, replies demonstrate only the selected output format. Live tests send individual requests.</p><div id="preview" class="mt-5 flex justify-end"></div></section>
+  </div>
+  <section class="mt-6 rounded-xl border border-slate-200 bg-white p-6"><h2 class="text-lg font-semibold">Install on your website</h2><p id="state" class="mt-2 text-sm">Save settings to generate your embed code.</p><pre id="snippet" class="mt-4 overflow-x-auto whitespace-pre-wrap rounded bg-slate-950 p-4 text-sm text-white"></pre><p class="mt-2 text-sm text-slate-600">Paste this before your website’s closing body tag. The widget uses a public ID; no API key is needed. After activation, open the configured website and send a real message. Confirm its reply in Conversations and its completed request in Usage. Live replies use credits.</p><div class="mt-4 flex gap-3"><button id="copy" disabled class="rounded-lg border border-slate-300 bg-white px-4 py-2">Copy code</button><button id="activate" disabled class="rounded bg-emerald-700 px-4 py-2 text-white">Activate</button><button id="deactivate" disabled class="rounded-lg border border-slate-300 bg-white px-4 py-2">Deactivate</button></div></section>
+  <script is:inline src="/embed.js"></script>
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    let widget = null, widgets = [], busy = false, dirty = false;
+    const query = new URLSearchParams(location.search);
+    const defaults = { origin: '', title: 'Chat with us', welcome: 'Welcome. How can we help?', color: '#2563eb', position: 'right', conversation_template: 'service', output_template: 'default', conversation_instructions: '' };
+    const config = () => ({ business_data_enabled: $('business_data_enabled').checked, name: $('name').value.trim(), ...Object.fromEntries(Object.keys(defaults).map((key) => [key, $(key).value.trim()])) });
+    const base = () => `/api/v1/projects/${encodeURIComponent($('project').value)}/chat-services/${encodeURIComponent($('service').value)}/web-widget`;
+    const notice = (text) => $('notice').textContent = text;
+    async function api(path, options = {}) { const response = await fetch(path, { credentials: 'include', ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error?.message || 'Unable to complete the request. Please retry.'); return data; }
+    const preview = window.dlogicflowWidget.mount($('preview'), defaults, async (input) => {
+      if (!$('live').checked) return ({ default: 'Here is an example conversational reply. How can we help you next?', concise: 'Here is a short answer. What would you like to do next?', bullets: '• A clear answer to your question.\n• A helpful next step.', steps: '1. Describe what you need.\n2. Review the suggested solution.\n3. Confirm your next step.' })[$('output_template').value];
+      if (!$('service').value || busy) throw new Error('Select a Chat Service and wait for settings to load.');
+      const data = await api(`${base()}/preview`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input, behavior: { business_data_enabled: $('business_data_enabled').checked, conversation_template: $('conversation_template').value, output_template: $('output_template').value, conversation_instructions: $('conversation_instructions').value.trim() } }) }); return data.output_text || 'No reply returned.';
+    });
+    function controls() { $('fields').disabled = busy || !$('service').value; $('project').disabled = busy || !$('project').options.length; $('service').disabled = busy || !$('service').options.length; $('widget').disabled = busy || !widgets.length; $('new-widget').disabled = busy || !$('service').value; $('copy').disabled = !widget || busy; $('activate').disabled = !widget || busy || dirty || widget.status === 'active'; $('deactivate').disabled = !widget || busy || widget.status !== 'active'; }
+    function render() { $('state').textContent = widget ? `Status: ${widget.status}${dirty ? ' — unsaved changes' : ''}. Activation enables customer requests; verify a reply on your website after installing.` : 'Save settings to generate your embed code.'; $('snippet').textContent = widget ? `<script async src="${location.origin}/embed.js" data-widget="${widget.id}"><\/script>` : ''; controls(); }
+    function selectWidget(id) { widget = widgets.find((item) => item.id === id) || null; dirty = false; const values = { ...defaults, ...(widget?.config || {}) }; $('name').value = widget?.name || 'Website widget'; Object.keys(defaults).forEach((key) => $(key).value = values[key]); $('business_data_enabled').checked = widget?.config?.business_data_enabled !== false; preview.update(values); $('preview').style.justifyContent = values.position === 'left' ? 'flex-start' : 'flex-end'; render(); }
+    async function loadWidget(chosen) { widget = null; widgets = []; dirty = false; render(); const data = await api(base()); widgets = data.widgets || (data.widget ? [data.widget] : []); $('widget').replaceChildren(...widgets.map((item) => new Option(`${item.name} — ${item.config.origin} (${item.status})`, item.id)), new Option('New widget', '')); const selected = widgets.some((item) => item.id === chosen) ? chosen : widgets[0]?.id || ''; $('widget').value = selected; selectWidget(selected); }
+    function options(select, items, chosen) { select.replaceChildren(...items.map((item) => new Option(item.name, item.id))); if (items.some((item) => item.id === chosen)) select.value = chosen; }
+    async function services(chosen) { $('service').replaceChildren(); widget = null; render(); if (!$('project').value) { notice('Create a project and Chat Service to continue.'); return; } const data = await api(`/api/v1/projects/${encodeURIComponent($('project').value)}/chat-services`); options($('service'), data.chat_services || [], chosen); if ($('service').value) await loadWidget(query.get("widgetId")); else notice('Create a Chat Service in this project to continue.'); }
+    async function task(fn) { if (busy) return; busy = true; controls(); try { await fn(); } catch (error) { notice(error.message); } finally { busy = false; controls(); } }
+    $('settings').addEventListener('input', () => { dirty = true; const values = config(); preview.update(values); $('preview').style.justifyContent = values.position === 'left' ? 'flex-start' : 'flex-end'; render(); });
+    $('widget').onchange = () => selectWidget($('widget').value);
+    $('new-widget').onclick = () => { $('widget').value = ''; selectWidget(''); notice('Enter settings for the new widget.'); };
+    $('settings').onsubmit = (event) => { event.preventDefault(); task(async () => { const currentId = widget?.id; const data = await api(currentId ? `${base()}/${encodeURIComponent(currentId)}` : base(), { method: currentId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config()) }); await loadWidget(data.widget?.id || currentId); notice(currentId ? 'Settings saved.' : 'Widget created.'); }); };
+    $('project').onchange = () => task(() => services()); $('service').onchange = () => task(loadWidget);
+    $('copy').onclick = async () => { try { await navigator.clipboard.writeText($('snippet').textContent); notice('Embed code copied.'); } catch { notice('Select and copy the displayed embed code.'); } };
+    for (const [button, status] of [['activate','active'],['deactivate','inactive']]) $(button).onclick = () => task(async () => { const currentId = widget.id; await api(`${base()}/${encodeURIComponent(currentId)}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }); await loadWidget(currentId); notice(status === 'active' ? 'Widget activated. Install the code and test a reply on your website.' : 'Widget deactivated. New customer messages are blocked.'); });
+    task(async () => { const data = await api('/api/v1/projects'); options($('project'), data.projects || [], query.get('projectId')); await services(query.get('serviceId')); });
+  </script>
+</AppLayout>

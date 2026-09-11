@@ -61,10 +61,10 @@ import AppLayout from "../../layouts/AppLayout.astro";
         const c = creditData.credits;
 
         cards.innerHTML = [
-          ["Available", c.total_available],
-          ["Subscription", c.subscription_balance],
-          ["Purchased", c.purchased_balance],
-          ["Promotional", c.promotional_balance],
+          ["Available", c.available],
+          ["Subscription", c.subscription],
+          ["Purchased", c.purchased],
+          ["Promotional", c.promotional],
         ].map(([label, value]) => `
           <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-sm text-slate-500">${label}</p>

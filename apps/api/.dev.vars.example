@@ -3,6 +3,7 @@ SESSION_SECRET=replace-with-a-random-secret
 MASTER_KEY=replace-with-64-hex-characters
 OPENAI_API_KEY=
 GEMINI_API_KEY=
+STREAMING_ENABLED=false
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_SUCCESS_URL=http://localhost:4321/billing/success

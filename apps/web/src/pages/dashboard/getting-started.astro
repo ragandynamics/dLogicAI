@@ -1,0 +1,207 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
+---
+
+<AppLayout title="Getting Started" appShell={true}>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-sm font-semibold text-blue-700">Your first working path</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Get a customer conversation live</h1>
+      <p id="workspace-copy" class="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Start in development, test the experience, then move a verified version toward production.</p>
+    </div>
+    <a href="/dashboard/projects" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Manage projects</a>
+  </div>
+
+  <section class="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm">
+      <div class="border-b border-white/10 px-6 py-5">
+        <div class="flex flex-wrap items-center justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-300">Development sample</p><h2 class="mt-2 text-xl font-bold text-white">Test before you configure everything</h2></div><span id="sample-project" class="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-300">Loading project…</span></div>
+        <p class="mt-3 max-w-xl text-sm leading-6 text-slate-300">Use the API sample below with a development key. It is ready to paste into a website or run from a terminal.</p>
+      </div>
+      <div class="grid gap-5 p-6 lg:grid-cols-2">
+        <div><p class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">JavaScript</p><pre id="js-sample" class="mt-3 min-h-52 overflow-auto rounded-xl border border-white/10 bg-black/20 p-4 text-xs leading-6 text-slate-200"></pre></div>
+        <div><p class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">cURL</p><pre id="curl-sample" class="mt-3 min-h-52 overflow-auto rounded-xl border border-white/10 bg-black/20 p-4 text-xs leading-6 text-slate-200"></pre></div>
+      </div>
+      <div class="flex flex-wrap gap-3 border-t border-white/10 px-6 py-5"><button id="create-key" type="button" class="rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-400">Create development API key</button><button id="copy-js" type="button" class="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10">Copy JavaScript</button><button id="copy-curl" type="button" class="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10">Copy cURL</button></div>
+    </div>
+
+    <aside class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Implementation checklist</p>
+      <div id="checklist" class="mt-5 space-y-4"><p class="text-sm text-slate-500">Loading workspace status…</p></div>
+    </aside>
+  </section>
+
+  <section class="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Required first step</p><h2 class="mt-2 text-xl font-bold text-slate-950">Development access</h2></div><span id="key-status" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Key needed</span></div>
+      <p class="mt-3 text-sm leading-6 text-slate-600">Create a temporary development key to run the sample. The secret is shown once and held only in this browser tab.</p>
+      <code id="key-preview" class="mt-5 block min-h-10 break-all rounded-lg bg-slate-50 p-3 text-xs text-slate-600">No key created</code>
+      <p id="key-message" class="mt-3 min-h-5 text-sm" role="status"></p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Live preview</p><h2 class="mt-2 text-xl font-bold text-slate-950">Try the working request</h2></div><span id="preview-status" class="text-xs font-semibold text-slate-500">Waiting for a key</span></div>
+      <form id="preview-form" class="mt-5 flex flex-col gap-3 sm:flex-row"><input id="preview-input" required value="How can you help me?" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" /><button id="preview-button" type="submit" disabled class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Run preview</button></form>
+      <div id="preview-output" class="mt-4 min-h-24 rounded-xl bg-slate-950 p-4 text-sm leading-6 text-slate-200">Create a development key to test your first response.</div>
+      <p id="preview-meta" class="mt-3 min-h-5 text-xs text-slate-500"></p>
+    </div>
+  </section>
+
+  <section class="mt-6 grid gap-4 md:grid-cols-3">
+    <a href="/dashboard/services" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">01 · Configure</p><h2 class="mt-2 font-bold text-slate-950">Business function</h2><p class="mt-2 text-sm leading-6 text-slate-600">Define the customer journey, provider policy, and dialog behavior.</p></a>
+    <a href="/dashboard/knowledge-bases" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">02 · Ground</p><h2 class="mt-2 font-bold text-slate-950">Knowledge base</h2><p class="mt-2 text-sm leading-6 text-slate-600">Add approved product, policy, or support material for your service.</p></a>
+    <a href="/dashboard/conversations" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-blue-300"><p class="text-xs font-bold uppercase tracking-wide text-blue-700">03 · Verify</p><h2 class="mt-2 font-bold text-slate-950">Test conversation</h2><p class="mt-2 text-sm leading-6 text-slate-600">Review responses, pause automation, and take over when a person is needed.</p></a>
+  </section>
+
+  <p id="message" class="mt-5 min-h-5 text-sm" role="status"></p>
+
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[character]));
+    const checklist = document.querySelector("#checklist");
+    const message = document.querySelector("#message");
+    const keyStatus = document.querySelector("#key-status");
+    const keyPreview = document.querySelector("#key-preview");
+    const keyMessage = document.querySelector("#key-message");
+    const previewStatus = document.querySelector("#preview-status");
+    const previewButton = document.querySelector("#preview-button");
+    const previewOutput = document.querySelector("#preview-output");
+    const previewMeta = document.querySelector("#preview-meta");
+    let developmentProject = null;
+    let selectedService = null;
+    let developmentKey = "";
+
+    function checkItem(number, title, detail, complete, href, action) {
+      return `<div class="flex gap-3"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${complete ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"} text-xs font-bold">${complete ? "✓" : number}</span><div class="min-w-0 flex-1"><div class="flex flex-wrap items-start justify-between gap-2"><div><p class="text-sm font-semibold text-slate-900">${title}</p><p class="mt-1 text-xs leading-5 text-slate-500">${detail}</p></div>${complete ? "<span class=\"text-xs font-semibold text-emerald-700\">Complete</span>" : `<a href="${href}" class="text-xs font-semibold text-blue-600 hover:text-blue-800">${action}</a>`}</div></div></div>`;
+    }
+
+    async function get(path, options = {}) {
+      const response = await fetch(`${apiBaseUrl}${path}`, { credentials: "include", ...options });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error?.message || "Unable to load workspace status.");
+      return data;
+    }
+
+    function copyText(text, label) {
+      if (!text || text.includes("YOUR_DEVELOPMENT_KEY")) {
+        keyMessage.textContent = "Create a development API key first.";
+        keyMessage.className = "mt-3 min-h-5 text-sm text-amber-700";
+        return;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        keyMessage.textContent = `${label} copied to clipboard.`;
+        keyMessage.className = "mt-3 min-h-5 text-sm text-emerald-600";
+      }).catch(() => {
+        keyMessage.textContent = "Clipboard access is unavailable. Select the sample and copy it manually.";
+        keyMessage.className = "mt-3 min-h-5 text-sm text-amber-700";
+      });
+    }
+
+    function sampleBody() {
+      return JSON.stringify({ input: "How can you help me?", ...(selectedService ? { chat_service_id: selectedService.id } : {}) });
+    }
+
+    function renderSamples() {
+      const key = developmentKey || "YOUR_DEVELOPMENT_KEY";
+      const body = sampleBody();
+      document.querySelector("#js-sample").textContent = `const response = await fetch("${window.location.origin}${apiBaseUrl}/v1/responses", {\n  method: "POST",\n  headers: {\n    "Content-Type": "application/json",\n    "Authorization": "Bearer ${key}"\n  },\n  body: JSON.stringify(${body})\n});\n\nconst result = await response.json();`;
+      document.querySelector("#curl-sample").textContent = `curl "${window.location.origin}${apiBaseUrl}/v1/responses" ^\n  -H "Authorization: Bearer ${key}" ^\n  -H "Content-Type: application/json" ^\n  -d '${body}'`;
+    }
+
+    async function createDevelopmentKey() {
+      if (!developmentProject) return;
+      const button = document.querySelector("#create-key");
+      button.disabled = true;
+      button.textContent = "Creating…";
+      keyMessage.textContent = "";
+      try {
+        const data = await get(`/v1/projects/${encodeURIComponent(developmentProject.id)}/api-keys`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Getting Started Development Key" }) });
+        developmentKey = data.api_key?.secret || "";
+        keyPreview.textContent = developmentKey || "Key created, but no secret was returned.";
+        keyStatus.textContent = "Ready to test";
+        keyStatus.className = "rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700";
+        previewStatus.textContent = "Ready to run";
+        previewButton.disabled = !developmentKey;
+        button.textContent = "Create another development key";
+        renderSamples();
+        keyMessage.textContent = "Store this secret securely. It will not be shown again.";
+        keyMessage.className = "mt-3 min-h-5 text-sm text-amber-700";
+      } catch (error) {
+        keyMessage.textContent = error.message;
+        keyMessage.className = "mt-3 min-h-5 text-sm text-red-600";
+        button.disabled = false;
+        button.textContent = "Create development API key";
+      }
+    }
+
+    async function load() {
+      try {
+        const [projectData, userData] = await Promise.all([get("/v1/projects"), get("/v1/me")]);
+        const allProjects = projectData.projects || [];
+        const projects = userData.role === "member" ? allProjects.filter((project) => project.environment !== "production") : allProjects;
+        const environmentPriority = { development: 0, staging: 1, production: 2 };
+        const development = [...projects].sort((a, b) => (environmentPriority[a.environment] ?? 99) - (environmentPriority[b.environment] ?? 99))[0];
+        developmentProject = development;
+        if (!development) {
+          document.querySelector("#sample-project").textContent = "No project yet";
+          document.querySelector("#js-sample").textContent = "Create a development project to generate your sample.";
+          document.querySelector("#curl-sample").textContent = "Create a development project to generate your sample.";
+          checklist.innerHTML = checkItem(1, "Create a development project", "Your working sample starts with an isolated development environment.", false, "/dashboard/projects", "Create project");
+          return;
+        }
+
+        document.querySelector("#sample-project").textContent = `${development.name} · ${development.environment}`;
+        document.querySelector("#create-key").textContent = `Create ${development.environment} API key`;
+
+        const serviceData = await get(`/v1/projects/${encodeURIComponent(development.id)}/chat-services`);
+        const services = serviceData.chat_services || [];
+        const knowledgeData = await get(`/v1/projects/${encodeURIComponent(development.id)}/knowledge-bases`);
+        const knowledgeBases = knowledgeData.knowledge_bases || [];
+        const service = services[0];
+        selectedService = service || null;
+        renderSamples();
+        const flow = service ? await get(`/v1/projects/${encodeURIComponent(development.id)}/chat-services/${encodeURIComponent(service.id)}/dialog-flow`) : { dialog_flow: null };
+        checklist.innerHTML = [
+          checkItem(1, "Development project", `${development.name} is ready for testing.`, true, "/dashboard/projects", "Open projects"),
+          checkItem(2, "Chat Service", service ? `${service.name} is available in development.` : "Create the business function that will guide customers.", Boolean(service), "/dashboard/services", "Configure"),
+          checkItem(3, "Dialog flow", flow.dialog_flow ? `Published version ${flow.dialog_flow.version} is active.` : "Define states, transitions, and outcomes.", Boolean(flow.dialog_flow), service ? `/dashboard/chat-services/${encodeURIComponent(service.id)}?projectId=${encodeURIComponent(development.id)}` : "/dashboard/services", "Configure"),
+          checkItem(4, "Knowledge base", knowledgeBases.length ? `${knowledgeBases.length} knowledge base${knowledgeBases.length === 1 ? "" : "s"} available.` : "Add approved business material for grounded answers.", knowledgeBases.length > 0, "/dashboard/knowledge-bases", "Add knowledge"),
+          checkItem(5, "Test and promote", "Run the live preview now. Environment promotion will follow after deployment controls are added.", false, "#preview-form", "Run preview"),
+        ].join("");
+      } catch (error) {
+        message.textContent = error.message;
+        message.className = "mt-5 min-h-5 text-sm text-red-600";
+      }
+    }
+
+    document.querySelector("#create-key").addEventListener("click", createDevelopmentKey);
+    document.querySelector("#copy-js").addEventListener("click", () => copyText(document.querySelector("#js-sample").textContent, "JavaScript sample"));
+    document.querySelector("#copy-curl").addEventListener("click", () => copyText(document.querySelector("#curl-sample").textContent, "cURL sample"));
+    document.querySelector("#preview-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!developmentKey) return;
+      const text = document.querySelector("#preview-input").value.trim();
+      previewButton.disabled = true;
+      previewButton.textContent = "Running…";
+      previewStatus.textContent = "Request in progress";
+      previewOutput.textContent = "Waiting for the development response…";
+      const started = performance.now();
+      try {
+        const response = await fetch(`${apiBaseUrl}/v1/responses`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${developmentKey}` }, body: JSON.stringify({ input: text, ...(selectedService ? { chat_service_id: selectedService.id } : {}) }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error?.message || "The preview request failed.");
+        previewOutput.textContent = data.output_text || data.text || data.output?.text || "No response text returned.";
+        previewStatus.textContent = "Response received";
+        previewMeta.textContent = `${Math.round(performance.now() - started)} ms · ${data.conversation_id ? `Conversation ${data.conversation_id}` : "Development request"}`;
+      } catch (error) {
+        previewOutput.textContent = error.message;
+        previewStatus.textContent = "Request failed";
+        previewMeta.textContent = "Check the provider configuration or try again.";
+      } finally {
+        previewButton.disabled = false;
+        previewButton.textContent = "Run preview";
+      }
+    });
+
+    load();
+  </script>
+</AppLayout>

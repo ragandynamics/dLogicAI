@@ -1,0 +1,9 @@
+{
+  "name": "@dlogicai/system-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --dir ../api exec wrangler dev --config ../system-admin/wrangler.jsonc",
+    "build": "pnpm --dir ../api exec wrangler deploy --dry-run --config ../system-admin/wrangler.jsonc --outdir ../../.tmp/staff-build/system-admin"
+  }
+}

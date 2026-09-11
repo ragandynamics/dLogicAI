@@ -1,0 +1,1 @@
+export default {root:'C:/CloudFlare/dlogicai/apps/api',test:{include:['../../.tmp/forms-browser.preview.ts'],hookTimeout:60000,testTimeout:3600000},resolve:{alias:{vitest:'C:/CloudFlare/dlogicai/apps/api/node_modules/vitest/dist/index.js'}}};

@@ -1,0 +1,87 @@
+---
+import { API_BASE_URL } from "../types/env";
+interface Props { view: "usage" | "analytics" | "audit"; }
+const { view } = Astro.props;
+---
+<section id="operations" data-view={view} class="mt-6 space-y-5">
+  <form id="report-filters" class="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-5">
+    <label class="text-sm font-medium">Period<select id="report-days" class="mt-2 block rounded-lg border border-slate-300 p-2"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last year</option></select></label>
+    {view !== "audit" ? <label class="text-sm font-medium">Project<select id="report-project" class="mt-2 block min-w-48 rounded-lg border border-slate-300 p-2"><option value="">All projects</option></select></label> : <label class="text-sm font-medium">Action<input id="report-action" maxlength="100" placeholder="All actions" class="mt-2 block rounded-lg border border-slate-300 p-2" /></label>}
+    <button class="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white">Apply filters</button>
+    <button id="report-refresh" type="button" class="rounded-lg border border-slate-300 px-4 py-2">Refresh</button>
+  </form>
+  <p id="report-status" role="status" aria-live="polite" class="text-sm text-slate-600">Loading report…</p>
+  <div id="report-summary" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"></div>
+  <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <h2 id="report-heading" class="border-b border-slate-200 p-5 text-lg font-semibold"></h2>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead id="report-head" class="bg-slate-50 text-slate-600"></thead><tbody id="report-body" class="divide-y divide-slate-100"></tbody></table></div>
+    <p id="report-empty" class="hidden p-8 text-center text-slate-500"></p>
+  </section>
+  {view === "audit" && <div class="flex items-center gap-4"><button id="report-prev" disabled class="rounded-lg border px-4 py-2 disabled:opacity-40">Previous</button><span id="report-page" class="text-sm"></span><button id="report-next" disabled class="rounded-lg border px-4 py-2 disabled:opacity-40">Next</button></div>}
+</section>
+<script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+(() => {
+  const root = document.querySelector("#operations");
+  const view = root.dataset.view;
+  const el = (id) => document.getElementById("report-" + id);
+  const escape = (value) => String(value ?? "—").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const number = (value) => Number(value || 0).toLocaleString();
+  let offset = 0, generation = 0;
+  const headers = view === "usage" ? ["Project", "Provider / model", "Billing mode", "Status", "Requests", "Input tokens", "Output tokens"] : view === "analytics" ? ["Conversation", "Project", "Sentiment", "Urgency signal", "Escalation signal", "Last activity"] : ["When", "Actor", "Action", "Resource", "Reference", "Request reference"];
+  el("head").innerHTML = "<tr>" + headers.map(h => '<th scope="col" class="whitespace-nowrap px-5 py-3">' + h + "</th>").join("") + "</tr>";
+  el("heading").textContent = view === "usage" ? "Request breakdown" : view === "analytics" ? "Conversations to review · most recent 50" : "Recorded administrative actions";
+  function card(label, value) { return '<div class="rounded-xl border border-slate-200 bg-white p-5"><p class="text-sm text-slate-500">'+escape(label)+'</p><p class="mt-2 text-3xl font-bold">'+number(value)+'</p></div>'; }
+  async function load() {
+    const run = ++generation;
+    el("status").textContent = "Loading report…";
+    root.setAttribute("aria-busy", "true");
+    el("summary").replaceChildren(); el("body").replaceChildren(); el("empty").classList.add("hidden");
+    if (el("next")) { el("next").disabled = true; el("prev").disabled = true; }
+    const params = new URLSearchParams({ days: el("days").value, offset: String(offset) });
+    if (el("project")?.value) params.set("project_id", el("project").value);
+    if (el("action")?.value.trim()) params.set("action", el("action").value.trim());
+    try {
+      const response = await fetch(apiBaseUrl + "/v1/operations/" + view + "?" + params, { credentials: "include" });
+      if (!response.ok) throw new Error(response.status === 401 ? "Your session has expired. Sign in again to continue." : response.status === 403 ? "Audit history is available to owners, admins and billing members." : "Unable to load this report. Please try Refresh.");
+      const data = await response.json();
+      if (run !== generation) return;
+      const rows = data.records || [];
+      el("status").textContent = new Date(data.since).toLocaleString() + " – " + new Date(data.until).toLocaleString() + " · Your local time";
+      if (view === "usage") {
+        const count = status => rows.filter(r=>r.status === status).reduce((sum,r)=>sum+Number(r.requests),0);
+        const sum = key => rows.reduce((sum,r)=>sum+Number(r[key] || 0),0);
+        el("summary").innerHTML = card("Completed requests",count("completed"))+card("Failed requests",count("failed"))+card("Pending requests",count("reserved") + count("pending"))+card("Input tokens",sum("input_tokens"))+card("Output tokens",sum("output_tokens"));
+      } else if (view === "analytics") {
+        const s = data.summary || {};
+        el("summary").innerHTML = card("Active conversations",s.conversations)+card("With analysis",s.analyzed)+card("Negative sentiment",s.negative)+card("Urgency signals",s.urgent)+card("Escalation signals",s.escalation);
+      }
+      el("body").innerHTML = rows.map(r => {
+        const cells = view === "usage" ? [r.project_name || r.project_id, r.provider+" / "+r.model, r.billing_mode, r.status, number(r.requests), number(r.input_tokens), number(r.output_tokens)] : view === "analytics" ? [r.title || "Untitled conversation", r.project_name || "Project", r.sentiment, Number(r.urgency_score)>60?"Flagged":"—", Number(r.escalation_risk_score)>60?"Flagged":"—", new Date(r.updated_at).toLocaleString()] : [new Date(r.created_at).toLocaleString(),r.actor,r.action,r.resource_type,r.resource_id,r.request_id];
+        return "<tr>"+cells.map((cell,index)=>'<td class="px-5 py-4 align-top">'+(view==="analytics" && index===0?'<a class="font-medium text-blue-700 underline" href="/dashboard/conversations?conversationId='+encodeURIComponent(r.id)+'">'+escape(cell)+'</a>':escape(cell))+"</td>").join("")+"</tr>";
+      }).join("");
+      el("empty").classList.toggle("hidden", rows.length > 0);
+      el("empty").textContent = view === "usage" ? "No requests in this period. Activate a channel, send a test message, then refresh." : view === "analytics" ? "No conversations flagged for review in this period." : "No recorded actions match these filters. Earlier actions may not have been recorded.";
+      if (el("next")) { el("next").disabled = !data.has_more; el("prev").disabled = offset === 0; el("page").textContent = "Page "+(offset/50+1); }
+    } catch (error) { if (run === generation) el("status").textContent = error.message; }
+    finally { if (run === generation) root.setAttribute("aria-busy","false"); }
+  }
+  el("filters").addEventListener("submit", event => { event.preventDefault(); offset=0; load(); });
+  el("refresh").addEventListener("click", load);
+  el("prev")?.addEventListener("click",()=>{offset=Math.max(0,offset-50);load();});
+  el("next")?.addEventListener("click",()=>{offset+=50;load();});
+  async function start() {
+    if (el("project")) {
+      try {
+        const response = await fetch(apiBaseUrl+"/v1/projects",{credentials:"include"});
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        for (const p of data.projects || []) { const option=document.createElement("option"); option.value=p.id; option.textContent=p.name; el("project").append(option); }
+        const initial=new URLSearchParams(location.search).get("projectId");
+        if (initial && [...el("project").options].some(o=>o.value===initial)) el("project").value=initial;
+      } catch { el("project").disabled=true; }
+    }
+    load();
+  }
+  start();
+})();
+</script>

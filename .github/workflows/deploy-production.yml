@@ -1,4 +1,4 @@
-name: dLogicAI Deploy Production
+name: dLogicFlow Deploy Production
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build API
-        run: pnpm --filter @dLogicAI/api build
+        run: pnpm --filter @dlogicflow/api build
 
       - name: Apply Production D1 migrations
         working-directory: apps/api
@@ -57,7 +57,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          pnpm exec wrangler d1 migrations apply dialogicai-prod --remote --env production
+          pnpm exec wrangler d1 migrations apply dlogicai-prod --remote --env production
 
       - name: Deploy Production API Worker
         uses: cloudflare/wrangler-action@v3
@@ -166,7 +166,7 @@ jobs:
         env:
           PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
         run: |
-          pnpm --filter @dlogicai/web build
+          pnpm --filter @dlogicflow/web build
 
       - name: Verify generated Wrangler configuration
         working-directory: apps/web

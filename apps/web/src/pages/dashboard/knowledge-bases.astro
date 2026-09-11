@@ -1,0 +1,177 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
+---
+
+<AppLayout title="Knowledge Bases" appShell={true}>
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Knowledge Bases</h1>
+      <p class="mt-1 text-sm text-slate-600">Store approved business knowledge for your Chat Services.</p>
+    </div>
+    <label class="text-sm font-medium text-slate-700">Project<select id="project" class="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"></select></label>
+  </div>
+
+  <section class="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div><h2 class="font-bold text-slate-950">Create knowledge base</h2><p class="mt-1 text-sm text-slate-500">Keep product, policy, and support material in one controlled source.</p></div>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Tenant workspace</span>
+    </div>
+    <form id="create" class="mt-4 grid gap-4 md:grid-cols-[1fr_1.5fr_auto] md:items-end">
+      <label class="text-sm font-medium text-slate-700">Name<input name="name" required maxlength="120" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="Product documentation" /></label>
+      <label class="text-sm font-medium text-slate-700">Description<input name="description" maxlength="500" class="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="Approved product and pricing information" /></label>
+      <button class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" type="submit">Create</button>
+    </form>
+    <p id="message" class="mt-3 min-h-5 text-sm" role="status"></p>
+  </section>
+
+  <section id="retention-policy" class="mt-6 hidden max-w-3xl border border-slate-200 bg-white p-5">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div><h2 class="font-bold text-slate-950">Source retention</h2><p class="mt-1 text-sm text-slate-500">Keep original files after indexing for download and audit, or retain only indexed knowledge.</p></div>
+      <label class="inline-flex cursor-pointer items-center gap-3 text-sm font-semibold text-slate-700"><input id="delete-processed-sources" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600" />Delete processed source files</label>
+    </div>
+    <p id="retention-message" class="mt-3 min-h-5 text-sm" role="status"></p>
+  </section>
+
+  <div id="bases" class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
+  <div id="loading" class="mt-6 hidden rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading knowledge bases…</div>
+
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+    const projectSelect = document.querySelector("#project");
+    const bases = document.querySelector("#bases");
+    const loading = document.querySelector("#loading");
+    const message = document.querySelector("#message");
+    const retentionPanel = document.querySelector("#retention-policy");
+    const deleteProcessedSources = document.querySelector("#delete-processed-sources");
+    const retentionMessage = document.querySelector("#retention-message");
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[character]));
+
+    function showMessage(text, error = false) {
+      message.textContent = text;
+      message.className = `mt-3 min-h-5 text-sm ${error ? "text-red-600" : "text-emerald-600"}`;
+    }
+
+    function statusTone(status) {
+      return status === "ready" ? "bg-emerald-50 text-emerald-700" : status === "failed" ? "bg-red-50 text-red-700" : status === "processing" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700";
+    }
+
+    function statusLabel(status) {
+      return status === "ready" ? "Ready" : status === "failed" ? "Needs attention" : status === "processing" ? "Processing" : "Queued";
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(`${apiBaseUrl}${path}`, { credentials: "include", ...options });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error?.message || "Request failed.");
+      return data;
+    }
+
+    async function loadDocuments(projectId, knowledgeBaseId) {
+      const data = await api(`/v1/projects/${encodeURIComponent(projectId)}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents`);
+      return data.documents || [];
+    }
+
+    async function loadRetentionPolicy() {
+      try {
+        const policy = await api("/v1/organization/knowledge-retention");
+        deleteProcessedSources.checked = Boolean(policy.delete_processed_sources);
+        retentionPanel.classList.remove("hidden");
+      } catch (error) {
+        if (!String(error.message || "").includes("Owner or admin")) showMessage(error.message, true);
+      }
+    }
+
+    async function renderBases() {
+      if (!projectSelect.value) { bases.innerHTML = `<p class="text-sm text-slate-500">Create a project before adding a knowledge base.</p>`; return; }
+      loading.classList.remove("hidden");
+      bases.classList.add("hidden");
+      const data = await api(`/v1/projects/${encodeURIComponent(projectSelect.value)}/knowledge-bases`);
+      const items = await Promise.all((data.knowledge_bases || []).map(async (base) => ({ ...base, documents: await loadDocuments(projectSelect.value, base.id) })));
+      bases.innerHTML = items.length ? items.map((base) => `<article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-start justify-between gap-3"><div><h2 class="font-bold text-slate-950">${escapeHtml(base.name)}</h2><p class="mt-1 text-sm text-slate-500">${escapeHtml(base.description || "No description provided.")}</p></div><span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">${escapeHtml(base.status)}</span></div><div class="mt-5 border-t border-slate-100 pt-4"><div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold text-slate-800">Documents</h3><span class="text-xs text-slate-500">${base.documents.length}</span></div><div class="mt-3 space-y-2">${base.documents.length ? base.documents.map((document) => { const status = document.status || "pending"; const progress = status === "ready" ? 100 : status === "processing" ? 65 : status === "failed" ? 100 : 25; return `<div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-800">${escapeHtml(document.name)}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(document.content_type || "Unknown type")} · ${statusLabel(status)}</p></div><span class="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${statusTone(status)}">${statusLabel(status)}</span></div><div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200"><div class="h-full rounded-full ${status === "failed" ? "bg-red-500" : status === "ready" ? "bg-emerald-500" : "bg-blue-500"}" style="width: ${progress}%"></div></div>${document.error_message ? `<p class="mt-2 text-xs leading-5 text-red-600">${escapeHtml(document.error_message)}</p>` : status === "pending" ? `<p class="mt-2 text-xs text-slate-500">Ready to process</p>` : status === "ready" ? `<p class="mt-2 text-xs text-emerald-700">Available for attached Chat Services</p>` : ""}<div class="mt-3 flex flex-wrap justify-end gap-x-3 gap-y-2">${status === "pending" && ["text/plain", "text/csv", "text/html", "application/json"].includes(document.content_type) ? `<button type="button" data-process="${escapeHtml(document.id)}" data-base="${escapeHtml(base.id)}" class="text-xs font-semibold text-blue-600 hover:text-blue-800">Process document</button>` : status === "failed" && ["text/plain", "text/csv", "text/html", "application/json"].includes(document.content_type) ? `<button type="button" data-process="${escapeHtml(document.id)}" data-base="${escapeHtml(base.id)}" class="text-xs font-semibold text-blue-600 hover:text-blue-800">Retry processing</button>` : ""}<a href="${apiBaseUrl}/v1/projects/${encodeURIComponent(projectSelect.value)}/knowledge-bases/${encodeURIComponent(base.id)}/documents/${encodeURIComponent(document.id)}/download" class="text-xs font-semibold text-slate-600 hover:text-slate-900">Download</a><button type="button" data-delete="${escapeHtml(document.id)}" data-base="${escapeHtml(base.id)}" class="text-xs font-semibold text-red-600 hover:text-red-800">Delete</button></div></div>`; }).join("") : `<p class="text-sm text-slate-500">No documents uploaded.</p>`}</div><form data-upload="${escapeHtml(base.id)}" class="mt-4 rounded-lg border border-dashed border-slate-300 bg-white p-4"><label class="block cursor-pointer text-sm font-semibold text-slate-700">Choose a document<input name="file" type="file" required accept=".pdf,.docx,.json,.csv,.html,.txt" class="mt-2 block w-full text-sm font-normal text-slate-600" /></label><p class="mt-2 text-xs text-slate-500">PDF, DOCX, JSON, CSV, HTML, or TXT · up to 25 MB</p><button class="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">Upload document</button><p data-upload-status class="mt-2 hidden text-xs text-slate-500"></p></form></div></article>`).join("") : `<p class="text-sm text-slate-500 md:col-span-2 xl:col-span-3">No knowledge bases in this project.</p>`;
+      loading.classList.add("hidden");
+      bases.classList.remove("hidden");
+      bindDocumentActions();
+    }
+
+    function bindDocumentActions() {
+      bases.querySelectorAll("[data-upload]").forEach((form) => form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const file = formElement.querySelector("input[type=file]").files?.[0];
+        const status = formElement.querySelector("[data-upload-status]");
+        const submit = formElement.querySelector("button");
+        if (!file) return;
+        submit.disabled = true;
+        status.classList.remove("hidden");
+        status.textContent = `Uploading ${file.name}…`;
+        try {
+          const data = new FormData(formElement);
+          await api(`/v1/projects/${encodeURIComponent(projectSelect.value)}/knowledge-bases/${encodeURIComponent(formElement.dataset.upload)}/documents`, { method: "POST", body: data });
+          showMessage("Document uploaded. Start processing when ready.");
+          await renderBases();
+        } catch (error) {
+          submit.disabled = false;
+          status.textContent = error.message;
+          status.className = "mt-2 text-xs text-red-600";
+          showMessage(error.message, true);
+        }
+      }));
+      bases.querySelectorAll("[data-process]").forEach((button) => button.addEventListener("click", async () => {
+        button.disabled = true;
+        const original = button.textContent;
+        button.textContent = "Processing…";
+        try {
+          await api(`/v1/projects/${encodeURIComponent(projectSelect.value)}/knowledge-bases/${encodeURIComponent(button.dataset.base)}/documents/${encodeURIComponent(button.dataset.process)}/process`, { method: "POST" });
+          showMessage("Document processed and indexed.");
+          await renderBases();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = original;
+          showMessage(error.message, true);
+        }
+      }));
+      bases.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", async () => {
+        if (!confirm("Delete this document?")) return;
+        button.disabled = true;
+        try {
+          await api(`/v1/projects/${encodeURIComponent(projectSelect.value)}/knowledge-bases/${encodeURIComponent(button.dataset.base)}/documents/${encodeURIComponent(button.dataset.delete)}`, { method: "DELETE" });
+          showMessage("Document deleted.");
+          await renderBases();
+        } catch (error) {
+          button.disabled = false;
+          showMessage(error.message, true);
+        }
+      }));
+    }
+
+    async function loadProjects() {
+      try {
+        const data = await api("/v1/projects");
+        const projects = data.projects || [];
+        const requestedProjectId = new URLSearchParams(window.location.search).get("projectId");
+        const activeProject = projects.find((project) => project.id === requestedProjectId) || projects.find((project) => project.id === window.sessionStorage.getItem("dlogicai_active_project")) || projects[0];
+        projectSelect.replaceChildren(...projects.map((project) => { const option = document.createElement("option"); option.value = project.id; option.textContent = `${project.name} (${project.environment})`; return option; }));
+        if (activeProject) projectSelect.value = activeProject.id;
+        await renderBases();
+      } catch (error) { if (error.message === "Authentication required.") location.href = "/login"; else showMessage(error.message, true); }
+    }
+
+    projectSelect.addEventListener("change", renderBases);
+    deleteProcessedSources.addEventListener("change", async () => {
+      deleteProcessedSources.disabled = true;
+      try {
+        const policy = await api("/v1/organization/knowledge-retention", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete_processed_sources: deleteProcessedSources.checked }) });
+        deleteProcessedSources.checked = Boolean(policy.delete_processed_sources);
+        retentionMessage.textContent = policy.delete_processed_sources ? "Processed source files will be deleted after successful indexing." : "Original files will be retained after indexing.";
+        retentionMessage.className = "mt-3 min-h-5 text-sm text-emerald-600";
+      } catch (error) {
+        deleteProcessedSources.checked = !deleteProcessedSources.checked;
+        retentionMessage.textContent = error.message;
+        retentionMessage.className = "mt-3 min-h-5 text-sm text-red-600";
+      } finally { deleteProcessedSources.disabled = false; }
+    });
+    document.querySelector("#create").addEventListener("submit", async (event) => { event.preventDefault(); const formElement = event.currentTarget; const data = new FormData(formElement); try { await api(`/v1/projects/${encodeURIComponent(projectSelect.value)}/knowledge-bases`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: data.get("name"), description: data.get("description") }) }); formElement.reset(); showMessage("Knowledge base created."); await renderBases(); } catch (error) { showMessage(error.message, true); } });
+    loadRetentionPolicy();
+    loadProjects();
+  </script>
+</AppLayout>

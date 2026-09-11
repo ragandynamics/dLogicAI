@@ -63,7 +63,7 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  plans: () => request<any>("/plans"),
+  plans: () => request<any>("/billing/catalog"),
 
   subscription: () =>
     request<any>("/billing/subscription"),
@@ -135,7 +135,7 @@ export const api = {
 
   inviteMember: (body: {
     email: string;
-    role: "admin" | "developer" | "viewer" | "billing";
+    role: "admin" | "developer" | "billing" | "sales_operations";
   }) =>
     request<any>("/organization/invitations", {
       method: "POST",

@@ -1,4 +1,4 @@
-name: dLogicAI Deploy UAT
+name: dLogicFlow Deploy UAT
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build API
-        run: pnpm --filter @dLogicAI/api build
+        run: pnpm --filter @dlogicflow/api build
 
       - name: Apply UAT D1 migrations
         working-directory: apps/api
@@ -166,14 +166,14 @@ jobs:
         env:
           PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
         run: |
-          pnpm --filter @dlogicai/web build
+          pnpm --filter @dlogicflow/web build
 
       - name: Verify generated Wrangler configuration
         working-directory: apps/web
         run: |
           test -f dist/server/wrangler.json
-          echo "Generated Worker configuration:"
-          cat dist/server/wrangler.json
+          pnpm prepare:deploy uat
+          test -f dist/server/wrangler.uat.json
 
       - name: Deploy UAT Web Worker
         uses: cloudflare/wrangler-action@v3
@@ -183,5 +183,4 @@ jobs:
           workingDirectory: apps/web
           command: >
             deploy
-            --config dist/server/wrangler.json
-            --name dlogicai-web-uat
+            --config dist/server/wrangler.uat.json

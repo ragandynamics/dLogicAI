@@ -1,21 +1,28 @@
 {
-  "name": "@dlogicai/web",
+  "name": "@dlogicflow/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "check": "astro check"
+    "check": "astro check",
+    "prepare:deploy": "node scripts/prepare-worker-deploy-config.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "latest",
-    "@dlogicai/shared": "workspace:*",
-    "astro": "latest"
+    "@astrojs/react": "^6.0.4",
+    "@dlogicflow/shared": "workspace:*",
+    "@xyflow/react": "^12.11.5",
+    "astro": "latest",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "latest",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
     "tailwindcss": "latest",
     "typescript": "^6.0.3"
   }

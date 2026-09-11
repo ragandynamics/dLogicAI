@@ -26,6 +26,7 @@ Cloudflare recommends storing the account ID and API token in CI/CD secrets and 
 - `PUBLIC_API_BASE_URL` = the UAT API URL, e.g. `https://dlogicai-api-uat.<your-subdomain>.workers.dev`
 - `STRIPE_SUCCESS_URL` = UAT Stripe success redirect URL
 - `STRIPE_CANCEL_URL` = UAT Stripe cancel redirect URL
+- `MANAGED_SECONDARY_PROVIDER_PRIMARY` = `false` for Gemini 2.5 Flash-Lite primary, or `true` to promote GPT-5 Mini
 
 ### Production environment variables
 
@@ -33,6 +34,7 @@ Cloudflare recommends storing the account ID and API token in CI/CD secrets and 
 - `PUBLIC_API_BASE_URL` = the production API URL, e.g. `https://api.example.com`
 - `STRIPE_SUCCESS_URL` = production Stripe success redirect URL
 - `STRIPE_CANCEL_URL` = production Stripe cancel redirect URL
+- `MANAGED_SECONDARY_PROVIDER_PRIMARY` = `false` for Gemini 2.5 Flash-Lite primary, or `true` to promote GPT-5 Mini
 
 ## GitHub environment protection
 

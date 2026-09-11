@@ -1,0 +1,10 @@
+{
+  "worker": "dlogicai-api-uat",
+  "originalSha256": "f77157e717bb76ca353fd244ebd2d57b6102f5c5c8edf7a54df1378abdfea86c",
+  "releaseSha256": "7abf0ca96276551babeff914ca11d72440f2bcd89e8a360c140ad317165223cf",
+  "changes": [
+    "Stripe subscription item periods",
+    "Gemini managed model replacement and legacy alias"
+  ],
+  "migrations": []
+}

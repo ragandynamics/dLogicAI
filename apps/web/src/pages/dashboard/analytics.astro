@@ -1,0 +1,12 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+import OperationsReport from "../../components/OperationsReport.astro";
+import TenantJourney from "../../components/TenantJourney.astro";
+---
+<AppLayout title="Conversation analytics" appShell={true}>
+  <h1 class="text-3xl font-bold text-slate-950">Conversation analytics</h1>
+  <p class="mt-3 max-w-4xl text-sm leading-6 text-slate-600">Review conversations active in the selected period using their latest automated analysis. Sentiment, urgency and escalation are heuristic signals, not validated predictions. Signals can overlap; review the conversation before acting.</p>
+  <TenantJourney />
+  
+  <OperationsReport view="analytics" />
+</AppLayout>
