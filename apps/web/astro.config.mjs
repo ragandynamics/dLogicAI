@@ -7,7 +7,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   output: 'server',
-  adapter: cloudflare(),
+  session: false,
+  adapter: cloudflare({ imageService: 'compile' }),
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],

@@ -172,8 +172,8 @@ jobs:
         working-directory: apps/web
         run: |
           test -f dist/server/wrangler.json
-          echo "Generated Worker configuration:"
-          cat dist/server/wrangler.json
+          pnpm prepare:deploy production
+          test -f dist/server/wrangler.production.json
 
       - name: Deploy Production Web Worker
         uses: cloudflare/wrangler-action@v3
@@ -183,5 +183,4 @@ jobs:
           workingDirectory: apps/web
           command: >
             deploy
-            --config dist/server/wrangler.json
-            --name dlogicai-web
+            --config dist/server/wrangler.production.json
