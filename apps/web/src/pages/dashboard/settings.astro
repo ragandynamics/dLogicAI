@@ -1,4 +1,5 @@
 ---
+import { API_BASE_URL } from "../../types/env";
 import AppLayout from "../../layouts/AppLayout.astro";
 ---
 
@@ -34,6 +35,11 @@ import AppLayout from "../../layouts/AppLayout.astro";
       </div>
 
       <div>
+        <label class="text-sm font-medium text-slate-700">Country</label>
+        <input id="country" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+      </div>
+
+      <div>
         <label class="text-sm font-medium text-slate-700">Default language</label>
         <input id="default_language" class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="en" />
       </div>
@@ -45,12 +51,18 @@ import AppLayout from "../../layouts/AppLayout.astro";
     </div>
   </form>
 
-  <script is:inline>
+  <section class="mt-8 max-w-3xl rounded-2xl border border-red-200 bg-white p-6 shadow-sm sm:p-8">
+    <h2 class="text-lg font-bold text-slate-950">Deactivate account</h2>
+    <p class="mt-1 text-sm text-slate-600">This revokes your sessions and prevents future sign-in.</p>
+    <button id="deactivate-account" type="button" class="mt-4 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50">Deactivate account</button>
+  </section>
+
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
     const form = document.querySelector("#settings");
     const message = document.querySelector("#message");
 
     async function load() {
-      const response = await fetch("/api/organization", { credentials: "include" });
+      const response = await fetch(`${apiBaseUrl}/v1/organization`, { credentials: "include" });
       if (response.status === 401) {
         location.href = "/login";
         return;
@@ -63,13 +75,18 @@ import AppLayout from "../../layouts/AppLayout.astro";
       document.querySelector("#company_name").value = o.company_name || "";
       document.querySelector("#billing_email").value = o.billing_email || "";
       document.querySelector("#organization_type").value = o.organization_type || "individual";
+      document.querySelector("#country").value = o.country || "";
       document.querySelector("#default_language").value = o.default_language || "en";
+      if (data.role !== "owner" && data.role !== "admin") {
+        form.querySelectorAll("input, select, button").forEach((control) => control.disabled = true);
+        message.textContent = "Workspace settings are read-only for your role.";
+      }
     }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      const response = await fetch("/api/organization", {
+      const response = await fetch(`${apiBaseUrl}/v1/organization`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -78,6 +95,7 @@ import AppLayout from "../../layouts/AppLayout.astro";
           company_name: document.querySelector("#company_name").value || null,
           billing_email: document.querySelector("#billing_email").value || null,
           organization_type: document.querySelector("#organization_type").value,
+          country: document.querySelector("#country").value || null,
           default_language: document.querySelector("#default_language").value || "en",
         }),
       });
@@ -89,6 +107,16 @@ import AppLayout from "../../layouts/AppLayout.astro";
         : data?.error?.message || "Unable to save settings.";
 
       message.className = `text-sm ${response.ok ? "text-emerald-600" : "text-red-600"}`;
+    });
+
+    document.querySelector("#deactivate-account")?.addEventListener("click", async () => {
+      if (!confirm("Type DEACTIVATE in the next prompt to continue.")) return;
+      const confirmation = prompt("Type DEACTIVATE to confirm:");
+      if (confirmation !== "DEACTIVATE") return;
+      const response = await fetch(`${apiBaseUrl}/v1/account/deactivate`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { message.textContent = data?.error?.message || "Unable to deactivate account."; message.className = "text-sm text-red-600"; return; }
+      window.location.href = "/";
     });
 
     load();

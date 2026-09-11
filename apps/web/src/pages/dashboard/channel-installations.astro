@@ -1,0 +1,157 @@
+---
+import TenantJourney from "../../components/TenantJourney.astro";
+import AppLayout from "../../layouts/AppLayout.astro";
+import { API_BASE_URL } from "../../types/env";
+---
+<AppLayout title="Set up a channel" appShell={true}>
+  <h1 class="text-3xl font-bold text-slate-950">Connect a customer channel</h1>
+  <TenantJourney />
+  <p class="mt-2 text-slate-600">Choose a service, save your channel settings, then complete connection and testing.</p>
+  <section class="mt-6 rounded-xl border bg-white p-6">
+    <h2 class="text-lg font-semibold">1. Choose where conversations go</h2>
+    <div class="mt-4 grid gap-4 md:grid-cols-3">
+      <label>Project<select id="project" class="mt-2 block w-full rounded border p-3" disabled></select></label>
+      <label>Chat Service<select id="service" class="mt-2 block w-full rounded border p-3" disabled></select></label>
+      <label>Channel<select id="channel" class="mt-2 block w-full rounded border p-3"><option value="telegram">Telegram</option><option value="whatsapp">WhatsApp Business</option><option value="web">Web Chat</option></select></label>
+    </div>
+    <p id="empty" class="mt-3 text-sm text-slate-600"></p>
+    <a class="mt-3 inline-block text-sm text-blue-700 underline" href="/dashboard/services">Manage Chat Services</a>
+  </section>
+  <form id="setup" class="mt-6 rounded-xl border bg-white p-6">
+    <h2 class="text-lg font-semibold">2. Configure your channel</h2>
+    <p id="guidance" class="mt-2 text-sm leading-6 text-slate-600"></p>
+    <fieldset id="configuration" disabled class="mt-4 grid gap-4 md:grid-cols-2">
+      <label data-for="web">Website origin<input id="domain" type="url" placeholder="https://www.example.com" class="mt-2 block w-full rounded border p-3" /></label>
+      <label data-for="telegram whatsapp"><span id="account-label">External account ID</span><input id="account" maxlength="200" class="mt-2 block w-full rounded border p-3" /></label>
+      <label data-for="telegram whatsapp">Webhook verification secret<input id="secret" type="password" autocomplete="new-password" minlength="16" maxlength="255" pattern="[A-Za-z0-9_-]+" class="mt-2 block w-full rounded border p-3" /><span class="text-xs text-slate-500">Keep a copy for provider webhook setup. Letters, numbers, underscores and hyphens only.</span></label>
+      <label data-for="telegram">Bot token<input id="bot" type="password" autocomplete="new-password" class="mt-2 block w-full rounded border p-3" /></label>
+      <label data-for="whatsapp">Meta app secret<input id="app" type="password" autocomplete="new-password" class="mt-2 block w-full rounded border p-3" /></label>
+      <label data-for="whatsapp">Access token<input id="access" type="password" autocomplete="new-password" class="mt-2 block w-full rounded border p-3" /></label>
+      <label data-for="whatsapp">Phone number ID<input id="phone" class="mt-2 block w-full rounded border p-3" /></label>
+      <button id="save" type="submit" class="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-50">Save channel</button>
+    </fieldset>
+    <p id="message" role="status" aria-live="polite" class="mt-4 text-sm"></p>
+  </form>
+  <section class="mt-6 rounded-xl border bg-white p-6">
+    <h2 class="text-lg font-semibold">3. Connect and activate</h2>
+    <p class="mt-2 text-sm text-slate-600">Messaging channels start in testing. Configure the provider webhook, then activate to receive messages and test a reply. Saving credentials does not verify the connection.</p>
+    <div id="connections" class="mt-4 space-y-4"></div>
+  </section>
+  <script is:inline define:vars={{ apiBaseUrl: API_BASE_URL }}>
+    const $ = (id) => document.getElementById(id);
+    const query = new URLSearchParams(location.search);
+    const names = { web: "Web Chat", telegram: "Telegram", whatsapp: "WhatsApp Business" };
+    let revision = 0;
+    let busy = false;
+    const base = () => `/v1/projects/${encodeURIComponent($("project").value)}/chat-services/${encodeURIComponent($("service").value)}`;
+    function message(text, error = false) { $("message").textContent = text; $("message").className = `mt-4 text-sm ${error ? "text-red-700" : "text-emerald-700"}`; }
+    async function api(path, options = {}) {
+      const response = await fetch(`${apiBaseUrl}${path}`, { credentials: "include", ...options });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Sign in again to continue." : data.error?.message || "Unable to complete the request. Please retry.");
+      return data;
+    }
+    function options(select, items, selected) {
+      select.replaceChildren(...items.map((item) => new Option(item.name, item.id)));
+      if (items.some((item) => item.id === selected)) select.value = selected;
+      select.disabled = !items.length;
+    }
+    function toggle() {
+      const selected = $("channel").value;
+      if (selected === "web") { const params = new URLSearchParams(location.search); if ($("project").value) params.set("projectId", $("project").value); if ($("service").value) params.set("serviceId", $("service").value); location.replace(`/dashboard/webchat?${params}`); return; }
+      document.querySelectorAll("[data-for]").forEach((label) => {
+        const visible = label.dataset.for.split(" ").includes(selected);
+        label.hidden = !visible;
+        const input = label.querySelector("input"); input.disabled = !visible; input.required = visible;
+      });
+      $("account-label").textContent = selected === "telegram" ? "Telegram bot ID" : "WhatsApp Business account ID";
+      $("guidance").textContent = selected === "web"
+        ? "Save the website origin for this service. Website integration still requires a server-side connection; do not put a project API key in public website code."
+        : selected === "telegram" ? "Have your bot ID and bot token ready. Choose a webhook secret, save this installation, then use the callback URL below to configure your bot webhook."
+        : "Have your WhatsApp Business account ID, phone number ID, access token and Meta app secret ready. Choose a verification secret to use when configuring the callback.";
+    }
+    function text(parent, tag, value, className = "") { const el = document.createElement(tag); el.textContent = value; el.className = className; parent.append(el); return el; }
+    async function connections(token = revision) {
+      const scope = base();
+      const [social, web] = await Promise.all([api(`${scope}/channel-installations`), api(`${scope}/channels`)]);
+      if (token !== revision) return;
+      $("connections").replaceChildren();
+      const savedWeb = (web.channels || []).find((item) => item.channel === "web");
+      $("domain").value = savedWeb?.config?.domain || "";
+      if (savedWeb) {
+        const card = document.createElement("div"); card.className = "rounded-lg border p-4";
+        text(card, "h3", "Web Chat — settings saved", "font-semibold");
+        text(card, "p", savedWeb.config.domain || "No website origin set", "mt-2 text-sm");
+        text(card, "p", "Website integration and a successful end-to-end reply are still required. This setting alone does not enforce website access.", "mt-2 text-sm text-slate-600");
+        $("connections").append(card);
+      }
+      for (const item of social.installations || []) {
+        const card = document.createElement("div"); card.className = "rounded-lg border p-4";
+        text(card, "h3", `${names[item.channel] || item.channel} — ${({ active: "Active", testing: "Testing", inactive: "Inactive" })[item.status] || item.status}`, "font-semibold");
+        text(card, "p", item.external_account_id, "mt-1 text-sm text-slate-600");
+        const callback = new URL(`${apiBaseUrl}/v1/webhooks/channels/${encodeURIComponent(item.channel)}/${encodeURIComponent(item.id)}`, location.origin).href;
+        text(card, "p", "Webhook callback URL", "mt-3 text-sm font-semibold");
+        const url = text(card, "input", "", "mt-2 w-full rounded border p-2 text-sm"); url.value = callback; url.readOnly = true; url.setAttribute("aria-label", "Webhook callback URL");
+        text(card, "p", item.channel === "whatsapp" ? "Use the verification secret entered during setup as the provider verify token. Callback verification works in testing; customer messages require activation." : "Register this callback with your bot and use the setup verification secret as the webhook secret token. Activate before sending a test message.", "mt-2 text-sm text-slate-600");
+        if (item.status === "testing" || item.status === "inactive") {
+          const activate = text(card, "button", "Activate channel", "mt-3 rounded bg-blue-600 px-4 py-2 text-white"); activate.type = "button";
+          activate.onclick = async () => {
+            if (busy || !confirm("Activate this channel? Incoming messages can invoke AI and use workspace credits.")) return;
+            busy = true; activate.disabled = true; lock(true);
+            try { await api(`${scope}/channel-installations/${encodeURIComponent(item.id)}/activate`, { method: "POST" }); message("Channel activated. Send a test message in the channel and confirm a reply."); await connections(); }
+            catch (error) { message(error.message, true); activate.disabled = false; }
+            finally { busy = false; lock(false); }
+          };
+        }
+        if (item.status === "active") {
+          const stop = text(card, "button", "Deactivate channel", "mt-3 rounded-lg border px-4 py-2"); stop.type = "button";
+          stop.onclick = async () => { if (busy) return; busy = true; lock(true); stop.disabled=true; try { await api(`${scope}/channel-installations/${encodeURIComponent(item.id)}/deactivate`, {method:"POST"}); message("Channel deactivated. Settings are saved for reactivation."); await connections(); } catch (error) { message(error.message,true); stop.disabled=false; } finally { busy=false;lock(false); } };
+        }
+        const remove = text(card, "button", "Remove connection", "ml-3 mt-3 text-sm text-red-700 underline"); remove.type = "button";
+        remove.onclick = async () => {
+          if (busy || !confirm("Remove this channel connection? Customer messages will stop reaching this service.")) return;
+          busy = true; remove.disabled = true; lock(true);
+          try { await api(`${scope}/channel-installations/${encodeURIComponent(item.id)}`, { method: "DELETE" }); message("Channel connection removed."); await connections(); }
+          catch (error) { message(error.message, true); remove.disabled = false; }
+          finally { busy = false; lock(false); }
+        };
+        $("connections").append(card);
+      }
+      if (!savedWeb && !social.installations?.length) text($("connections"), "p", "No channels saved for this service yet.", "text-sm text-slate-500");
+    }
+    function lock(value) { $("project").disabled = value || !$("project").options.length; $("service").disabled = value || !$("service").options.length; $("channel").disabled = value; $("configuration").disabled = value || !$("service").value; }
+    async function services(selected) {
+      const token = ++revision; lock(true); $("service").replaceChildren(); $("connections").replaceChildren();
+      try {
+        if (!$("project").value) { $("empty").textContent = "Create a project and Chat Service to connect a channel."; return; }
+        const data = await api(`/v1/projects/${encodeURIComponent($("project").value)}/chat-services`);
+        if (token !== revision) return;
+        options($("service"), data.chat_services || [], selected);
+        $("empty").textContent = $("service").value ? "" : "This project has no Chat Services. Create one to continue.";
+        if ($("service").value) await connections(token);
+      } catch (error) { message(error.message, true); } finally { if (token === revision) lock(false); }
+    }
+    $("setup").addEventListener("submit", async (event) => {
+      event.preventDefault(); if (busy || !$("service").value) return;
+      const channel = $("channel").value;
+      const scope = base();
+      const body = channel === "web" ? { domain: $("domain").value.trim() } : {
+        channel, external_account_id: $("account").value.trim(), webhook_secret: $("secret").value,
+        credentials: channel === "telegram" ? { bot_token: $("bot").value.trim() } : { app_secret: $("app").value.trim(), access_token: $("access").value.trim(), phone_number_id: $("phone").value.trim() }
+      };
+      busy = true; lock(true);
+      try {
+        await api(`${scope}/${channel === "web" ? "channels/web" : "channel-installations"}`, { method: channel === "web" ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        ["bot", "app", "access", "secret"].forEach((id) => $(id).value = "");
+        message(channel === "web" ? "Website settings saved. Complete your website integration next." : "Installation saved in testing. Configure the callback below, then activate.");
+        await connections();
+      } catch (error) { message(error.message, true); } finally { busy = false; lock(false); }
+    });
+    $("channel").addEventListener("change", toggle);
+    $("project").addEventListener("change", () => services());
+    $("service").addEventListener("change", async () => { const token = ++revision; lock(true); try { await connections(token); } catch (error) { message(error.message, true); } finally { lock(false); } });
+    if (names[query.get("channel")]) $("channel").value = query.get("channel");
+    toggle();
+    (async () => { try { const data = await api("/v1/projects"); options($("project"), data.projects || [], query.get("projectId")); await services(query.get("serviceId")); } catch (error) { message(error.message, true); } })();
+  </script>
+</AppLayout>

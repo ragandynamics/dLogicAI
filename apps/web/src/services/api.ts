@@ -13,7 +13,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(`${API_BASE_URL}/v1${path}`, {
     ...init,
     credentials: "include",
     headers: {
@@ -63,7 +63,7 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  plans: () => request<any>("/plans"),
+  plans: () => request<any>("/billing/catalog"),
 
   subscription: () =>
     request<any>("/billing/subscription"),
@@ -103,46 +103,6 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
-  chatServices: (projectId: string) =>
-    request<any>(`/projects/${projectId}/chat-services`),
-
-  createChatService: (
-    projectId: string,
-    body: {
-      name: string;
-      description?: string;
-      environment: string;
-      default_language?: string;
-      ai_provider?: string;
-      model?: string;
-      enable_intelligence?: boolean;
-      enable_emotion_analysis?: boolean;
-      enable_upsell_analysis?: boolean;
-    },
-  ) =>
-    request<any>(`/projects/${projectId}/chat-services`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-
-  chatService: (projectId: string, serviceId: string) =>
-    request<any>(`/projects/${projectId}/chat-services/${serviceId}`),
-
-  updateChatService: (
-    projectId: string,
-    serviceId: string,
-    body: Record<string, unknown>,
-  ) =>
-    request<any>(`/projects/${projectId}/chat-services/${serviceId}`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    }),
-
-  deleteChatService: (projectId: string, serviceId: string) =>
-    request<any>(`/projects/${projectId}/chat-services/${serviceId}`, {
-      method: "DELETE",
-    }),
-
   providers: (projectId: string) =>
     request<any>(`/projects/${projectId}/providers`),
 
@@ -175,7 +135,7 @@ export const api = {
 
   inviteMember: (body: {
     email: string;
-    role: "admin" | "developer" | "viewer" | "billing";
+    role: "admin" | "developer" | "billing" | "sales_operations";
   }) =>
     request<any>("/organization/invitations", {
       method: "POST",

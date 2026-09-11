@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dlogicai-web",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "env": {
+    "uat": {
+      "name": "dlogicai-web-uat",
+      "vars": {
+        "APP_ENV": "uat",
+        "API_BASE_URL": "https://dlogicai-api-uat.rdproducts-adm1.workers.dev"
+      },
+      "services": [
+        { "binding": "API", "service": "dlogicai-api-uat" }
+      ]
+    },
+
+    "production": {
+      "name": "dlogicai-web",
+      "vars": {
+        "APP_ENV": "production"
+      },
+      "services": [
+        { "binding": "API", "service": "dlogicai-api" }
+      ]
+    }
+  }
+}

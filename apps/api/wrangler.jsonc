@@ -1,17 +1,140 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "dlogicai-api",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-08-15",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": {
-    "enabled": true
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "dialogicai-prod",
-      "database_id": "43d793f1-edad-4683-b5b0-308239fad5a1"
-    }
-  ]
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "dlogicai-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-18",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	// Local development defaults.
+	// `wrangler dev` uses local D1/R2 storage by default.
+	"vars": {
+		"APP_ENV": "local",
+		"MANAGED_SECONDARY_PROVIDER_PRIMARY": "false",
+		"STREAMING_ENABLED": "false"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "dialogicai-db",
+			"database_id": "dc3069c8-322a-41ed-8677-881f760c3f97"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "DATA_BUCKET",
+			"bucket_name": "dlogicai-prod-data"
+		},
+		{
+			"binding": "BACKUP_BUCKET",
+			"bucket_name": "dlogicai-prod-backups"
+		}
+	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "CHANNEL_QUEUE",
+				"queue": "dlogicai-channel-work"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "dlogicai-channel-work",
+				"max_batch_size": 10,
+				"max_batch_timeout": 5,
+				"max_retries": 3
+			}
+		]
+	},
+	"env": {
+		"uat": {
+			"name": "dlogicai-api-uat",
+			"vars": {
+				"APP_ENV": "uat",
+				"CORS_ORIGINS": "https://dlogicai-web-uat.rdproducts-adm1.workers.dev,http://localhost:4321,http://127.0.0.1:4321",
+				"APP_ORIGINS": "https://dlogicai-web-uat.rdproducts-adm1.workers.dev,http://localhost:4321,http://127.0.0.1:4321",
+				"MANAGED_SECONDARY_PROVIDER_PRIMARY": "false",
+				"STREAMING_ENABLED": "false"
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "dlogicai-uat",
+					"database_id": "deff70e3-7108-4c5e-86e9-a20df3cc6b36"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "DATA_BUCKET",
+					"bucket_name": "dlogicai-uat-data"
+				},
+				{
+					"binding": "BACKUP_BUCKET",
+					"bucket_name": "dlogicai-uat-backups"
+				}
+			],
+			"queues": {
+				"producers": [
+					{
+						"binding": "CHANNEL_QUEUE",
+						"queue": "dlogicai-channel-work-uat"
+					}
+				],
+				"consumers": [
+					{
+						"queue": "dlogicai-channel-work-uat",
+						"max_batch_size": 10,
+						"max_batch_timeout": 5,
+						"max_retries": 3
+					}
+				]
+			}
+		},
+		"production": {
+			"name": "dlogicai-api",
+			"vars": {
+				"APP_ENV": "production",
+				"CORS_ORIGINS": "https://dlogicai-web.rdproducts-adm1.workers.dev",
+				"APP_ORIGINS": "https://dlogicai-web.rdproducts-adm1.workers.dev",
+				"MANAGED_SECONDARY_PROVIDER_PRIMARY": "false",
+				"STREAMING_ENABLED": "false"
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "dlogicai-prod",
+					"database_id": "43d793f1-edad-4683-b5b0-308239fad5a1"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "DATA_BUCKET",
+					"bucket_name": "dlogicai-prod-data"
+				},
+				{
+					"binding": "BACKUP_BUCKET",
+					"bucket_name": "dlogicai-prod-backups"
+				}
+			],
+			"queues": {
+				"producers": [
+					{
+						"binding": "CHANNEL_QUEUE",
+						"queue": "dlogicai-channel-work"
+					}
+				],
+				"consumers": [
+					{
+						"queue": "dlogicai-channel-work",
+						"max_batch_size": 10,
+						"max_batch_timeout": 5,
+						"max_retries": 3
+					}
+				]
+			}
+		}
+	}
 }

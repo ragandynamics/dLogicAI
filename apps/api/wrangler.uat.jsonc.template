@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dlogicai-api-uat",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": {
+    "APP_ENV": "uat",
+    "CORS_ORIGINS": "https://dlogicai-web-uat.rdproducts-adm1.workers.dev,http://localhost:4321,http://127.0.0.1:4321",
+    "APP_ORIGINS": "https://dlogicai-web-uat.rdproducts-adm1.workers.dev,http://localhost:4321,http://127.0.0.1:4321"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dlogicai-uat",
+      "database_id": "__UAT_D1_DATABASE_ID__"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "DATA_BUCKET",
+      "bucket_name": "dlogicai-uat-data"
+    },
+    {
+      "binding": "BACKUP_BUCKET",
+      "bucket_name": "dlogicai-uat-backups"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "CHANNEL_QUEUE",
+        "queue": "dlogicai-channel-work-uat"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "dlogicai-channel-work-uat",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro";
+---
+
+<AppLayout title="API Playground" appShell={true}>
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">API Playground</h1>
+    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Test a project API key with configurable guidance, welcome, and conclusion behavior.</p>
+  </div>
+  <div class="mt-8 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <form id="config" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <label class="text-sm font-medium text-slate-700" for="key">Project API key</label>
+      <input id="key" type="password" required class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="sk_live_..." />
+      <label class="mt-4 block text-sm font-medium text-slate-700" for="welcome">Welcome message</label>
+      <textarea id="welcome" class="mt-1.5 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">Welcome. How can we help?</textarea>
+      <label class="mt-4 block text-sm font-medium text-slate-700" for="guidance">Guiding flow</label>
+      <textarea id="guidance" class="mt-1.5 min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">Ask one question at a time, identify intent, and guide the customer to the next useful action.</textarea>
+      <label class="mt-4 block text-sm font-medium text-slate-700" for="conclusion">Conclusion message</label>
+      <textarea id="conclusion" class="mt-1.5 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">Thanks. We have recorded the next step.</textarea>
+    </form>
+    <section class="flex min-h-[520px] flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div id="messages" class="flex-1 space-y-3 overflow-auto"></div>
+      <form id="chat" class="mt-5 flex gap-2"><input id="input" required class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" placeholder="Ask the API a question" /><button class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Send</button></form>
+      <p id="error" class="mt-3 text-sm text-red-600" role="alert"></p>
+    </section>
+  </div>
+  <script is:inline>
+    import { API_BASE_URL } from "../../types/env";
+    const messages = document.querySelector("#messages"); const error = document.querySelector("#error"); const add = (role, text) => { const item = document.createElement("div"); item.className = `rounded-lg p-3 text-sm ${role === "user" ? "ml-8 bg-blue-50 text-blue-950" : "mr-8 bg-slate-100 text-slate-800"}`; item.textContent = text; messages.appendChild(item); messages.scrollTop = messages.scrollHeight; };
+    add("assistant", document.querySelector("#welcome").value);
+    document.querySelector("#chat").addEventListener("submit", async (event) => { event.preventDefault(); error.textContent = ""; const input = document.querySelector("#input"); const key = document.querySelector("#key").value.trim(); const text = input.value.trim(); if (!key || !text) return; add("user", text); input.value = ""; const response = await fetch(`${API_BASE_URL}/v1/responses`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ input: [{ role: "system", content: `${document.querySelector("#guidance").value}\nConclusion: ${document.querySelector("#conclusion").value}` }, { role: "user", content: text }] }) }); const data = await response.json().catch(() => ({})); if (!response.ok) { error.textContent = data?.error?.message || "Unable to call the API."; return; } add("assistant", data.output?.text || data.text || "No response text returned."); });
+  </script>
+</AppLayout>
